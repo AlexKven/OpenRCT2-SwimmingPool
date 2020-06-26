@@ -48,6 +48,15 @@ class MapHelper {
         return element;
     }
 
+    static PlacePath(tile, objectIndex, height)
+    {
+        let element = MapHelper.InsertTileElement(tile, height);
+        element.type = "footpath";
+        element.object = objectIndex;
+        element.clearanceHeight = height + 1;
+        return element;
+    }
+
     static GetElementIndex(tile, element) {
         for (var i = 0; i < tile.numElements; i++) {
             var elementB = tile.getElement(i);

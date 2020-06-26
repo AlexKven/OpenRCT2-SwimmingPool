@@ -4,110 +4,6 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var MapHelper = function () {
-    function MapHelper() {
-        _classCallCheck(this, MapHelper);
-    }
-
-    _createClass(MapHelper, null, [{
-        key: "InsertTileElement",
-        value: function InsertTileElement(tile, height) {
-            var index = MapHelper.FindPlacementPosition(tile, height);
-            var element = tile.insertElement(index);
-            element._index = index;
-            element.baseHeight = height;
-            return element;
-        }
-    }, {
-        key: "FindPlacementPosition",
-        value: function FindPlacementPosition(tile, height) {
-            var index = 0;
-            for (index = 0; index < tile.numElements; index++) {
-                var element = tile.getElement(index);
-                if (element.baseHeight >= height) {
-                    break;
-                }
-            }
-            return index;
-        }
-    }, {
-        key: "GetTileSurfaceZ",
-        value: function GetTileSurfaceZ(x, y) {
-            var tile = map.getTile(x, y);
-            if (tile) {
-                for (var i = 0; i < tile.numElements; i++) {
-                    var element = tile.getElement(i);
-                    if (element && element.type == "surface") {
-                        return element.baseHeight;
-                    }
-                }
-            }
-            return null;
-        }
-    }, {
-        key: "PlaceSmallScenery",
-        value: function PlaceSmallScenery(tile, objectIndex, height) {
-            var orientation = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 0;
-
-            var element = MapHelper.InsertTileElement(tile, height);
-            element.type = "small_scenery";
-            element.object = objectIndex;
-            element.clearanceHeight = height + 1;
-            return element;
-        }
-    }, {
-        key: "PlaceWall",
-        value: function PlaceWall(tile, objectIndex, height) {
-            var orientation = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 0;
-
-            var element = MapHelper.InsertTileElement(tile, height);
-            element.type = "wall";
-            element.object = objectIndex;
-            element.clearanceHeight = height + 1;
-            return element;
-        }
-    }, {
-        key: "GetElementIndex",
-        value: function GetElementIndex(tile, element) {
-            for (var i = 0; i < tile.numElements; i++) {
-                var elementB = tile.getElement(i);
-                if (elementB && element == elementB) {
-                    return i;
-                }
-            }
-            return null;
-        }
-    }, {
-        key: "SetPrimaryTileColor",
-        value: function SetPrimaryTileColor(tile, elementIndex, color) {
-            var data = tile.data;
-            var typeFieldIndex = 6;
-            data[16 * elementIndex + typeFieldIndex] = color;
-            tile.data = data;
-        }
-    }, {
-        key: "SetTileElementRotation",
-        value: function SetTileElementRotation(tile, elementIndex, orientation) {
-            var data = tile.data;
-            var typeFieldIndex = 0;
-            var directionMask = 3;
-            data[16 * elementIndex + typeFieldIndex] &= ~directionMask;
-            data[16 * elementIndex + typeFieldIndex] |= orientation & directionMask;
-            tile.data = data;
-        }
-    }, {
-        key: "GetTileElementRotation",
-        value: function GetTileElementRotation(tile, elementIndex) {
-            var data = tile.data;
-            var typeFieldIndex = 0;
-            var directionMask = 3;
-            return data[16 * elementIndex + typeFieldIndex] & directionMask;
-        }
-    }]);
-
-    return MapHelper;
-}();
-
 var ObjectHelper = function () {
     function ObjectHelper() {
         _classCallCheck(this, ObjectHelper);
@@ -136,152 +32,15 @@ var ObjectHelper = function () {
     return ObjectHelper;
 }();
 
-var SwimmingPoolWindow = function () {
-    function SwimmingPoolWindow(objectHelper) {
-        _classCallCheck(this, SwimmingPoolWindow);
-
-        var windowWidth = 300;
-        var buttonWidth = 50;
-        var switchWidth = 32;
-        var windowHeight = 40 + 18 * 2;
-        var window = null;
-        var paths = objectHelper.GetAllPaths().map(function (p) {
-            return p.name;
-        });
-        var desc = {
-            classification: 'park',
-            title: "Swimming Pool",
-            width: windowWidth,
-            height: windowHeight + 20,
-            widgets: [{
-                type: 'label',
-                name: 'label-description',
-                x: 3,
-                y: 23,
-                width: windowWidth - 6,
-                height: 26,
-                text: "Drag to construct roadlines."
-            }, {
-                type: 'button',
-                name: "button-cancel",
-                x: windowWidth - buttonWidth - 6,
-                y: windowHeight,
-                width: buttonWidth,
-                height: 16,
-                text: "Cancel",
-                onClick: function onClick() {
-                    if (window != null) window.close();
-                }
-            }, {
-                type: 'label',
-                name: 'label-direction',
-                x: 3,
-                y: windowHeight + 2,
-                width: windowWidth - 6,
-                height: 26,
-                text: "Direction:"
-            }, {
-                type: 'button',
-                name: "button-left",
-                x: 3 + 60,
-                y: windowHeight,
-                width: switchWidth,
-                height: 16,
-                text: "\\",
-                onClick: function onClick() {
-                    direction = 0;
-                }
-            }, {
-                type: 'button',
-                name: "button-right",
-                x: 3 + switchWidth + 8 + 60,
-                y: windowHeight,
-                width: switchWidth,
-                height: 16,
-                text: "/",
-                onClick: function onClick() {
-                    direction = 1;
-                }
-            }, {
-                type: 'label',
-                name: 'label-path',
-                x: 3,
-                y: 40,
-                width: 60 - 6,
-                height: 26,
-                text: "Path:"
-            }, {
-                type: "dropdown",
-                x: 3 + 60,
-                y: 40,
-                width: windowWidth - 6 - (3 + 60),
-                height: 12,
-                name: "dropdown-path",
-                text: "",
-                items: paths,
-                selectedIndex: lineStyle,
-                onChange: function onChange(e) {
-                    lineStyle = e;
-                }
-            }, {
-                type: 'label',
-                name: 'label-color',
-                x: 3,
-                y: 40 + 18,
-                width: 60 - 6,
-                height: 26,
-                text: "Color:"
-            }, {
-                type: "dropdown",
-                x: 3 + 60,
-                y: 40 + 18,
-                width: windowWidth - 6 - (3 + 60),
-                height: 12,
-                name: "line_color",
-                text: "",
-                items: ["White", "Yellow", "Blue", "Grey", "Black"],
-                selectedIndex: lineColor,
-                onChange: function onChange(e) {
-                    lineColor = e;
-                }
-            }],
-            onClose: function onClose() {
-                window = null;
-                if (ui.tool && ui.tool.id == "swimming-pool-tool") {
-                    ui.tool.cancel();
-                }
-            }
-        };
-    }
-
-    _createClass(SwimmingPoolWindow, [{
-        key: "open",
-        value: function open() {
-            if (this.window == null) this.window = ui.openWindow(this.desc);else this.window.bringToFront();
-        }
-    }, {
-        key: "close",
-        value: function close() {
-            if (this.window) this.window.close();
-        }
-    }]);
-
-    return SwimmingPoolWindow;
-}();
-
 // /// <reference path="../../../bin/openrct2.d.ts" />
 
 var downCoord = void 0;
 var currentCoord = void 0;
 
-var direction$1 = 0;
+var direction = 0;
 
-var lineStyle$1 = 0;
-var lineColor$1 = 0;
-var lineStyles = ["rct2.walllt32", "rct2.walllt32", "rct2.wallrh32", "rct2.wc17", "rct2.wc17"];
-var lineStyleHeights = [4, 4, 4, 2, 2];
-var striped = [false, true, false, false, true];
-var colors = [2, 18, 6, 1, 0];
+var pathType = 0;
+var lineColor = 0;
 
 var objectHelper = void 0;
 function initializeHelpers() {
@@ -299,43 +58,103 @@ function selectTheMap() {
     };
 }
 
+function validateSelection(left, right, top, bottom) {
+    var height = null;
+    for (var x = left; x <= right; x++) {
+        for (var y = top; y <= bottom; y++) {
+            var tile = map.getTile(x, y);
+            var surface = null;
+            for (var i = 0; i < tile.numElements && surface == null; i++) {
+                var element = tile.getElement(i);
+                if (element.type == "surface") surface = element;
+            }
+            if (surface == null) return "There is no land here.";
+            if (surface.slope != 0) return "Land must be flat.";
+            if (height == null) height = surface.baseHeight;else if (height != surface.baseHeight) return "Entire area must be at the same height.";
+        }
+    }
+    return null;
+}
+
 function finishSelection() {
     var left = Math.floor(Math.min(downCoord.x, currentCoord.x) / 32);
     var right = Math.floor(Math.max(downCoord.x, currentCoord.x) / 32);
     var top = Math.floor(Math.min(downCoord.y, currentCoord.y) / 32);
     var bottom = Math.floor(Math.max(downCoord.y, currentCoord.y) / 32);
 
-    var roadLineWall = objectHelper.GetObjectIndex("wall", lineStyles[lineStyle$1]);
+    // const roadLineWall = objectHelper.GetObjectIndex("wall", lineStyles[lineStyle]);
 
     var viewRotation = ui.mainViewport.rotation;
-    viewRotation += direction$1;
+    viewRotation += direction;
     while (viewRotation > 1) {
         viewRotation -= 2;
     }
 
+    var pathObject = objectHelper.GetAllPaths()[pathType];
+    var error = validateSelection(left, right, top, bottom);
+    if (error != null) {
+        ui.showError("Can't build pool here:", error);
+        return;
+    }
     for (var x = left; x <= right; x++) {
-        if (striped[lineStyle$1] && viewRotation === 1 && x % 2 === 0) {
-            continue;
-        }
         for (var y = top; y <= bottom; y++) {
-            if (striped[lineStyle$1] && viewRotation === 0 && y % 2 === 0) {
-                continue;
-            }
+            var xAbove = x < right;
+            var xBelow = x > left;
+            var yAbove = y < bottom;
+            var yBelow = y > top;
+            var edges = 0;
+            if (xAbove) edges += 4;
+            if (xBelow) edges += 1;
+            if (yAbove) edges += 2;
+            if (yBelow) edges += 8;
+            if (xBelow && yAbove) edges += 16;
+            if (yAbove && xAbove) edges += 32;
+            if (xAbove && yBelow) edges += 64;
+            if (yBelow && xBelow) edges += 128;
 
             var tile = map.getTile(x, y);
-            var surfaceHeight = MapHelper.GetTileSurfaceZ(x, y);
-
-            if (viewRotation === 0 && x !== left || viewRotation === 1 && y !== bottom) {
-                var elementN = MapHelper.PlaceWall(tile, roadLineWall, surfaceHeight - lineStyleHeights[lineStyle$1]);
-                MapHelper.SetTileElementRotation(tile, elementN._index, 0 + viewRotation);
-                MapHelper.SetPrimaryTileColor(tile, elementN._index, colors[lineColor$1]);
+            var surface = null;
+            var surfaceIndex = -1;
+            var baseHeight = 0;
+            for (var i = 0; i < tile.numElements && surface == null; i++) {
+                var element = tile.getElement(i);
+                if (element.type == "surface") {
+                    surface = element;
+                    surfaceIndex = i;
+                    baseHeight = element.baseHeight;
+                }
             }
+            ui.showError("Base height:", "" + baseHeight);
 
-            if (viewRotation === 0 && x !== right || viewRotation === 1 && y !== top) {
-                var elementS = MapHelper.PlaceWall(tile, roadLineWall, surfaceHeight - lineStyleHeights[lineStyle$1]);
-                MapHelper.SetTileElementRotation(tile, elementS._index, 2 + viewRotation);
-                MapHelper.SetPrimaryTileColor(tile, elementS._index, colors[lineColor$1]);
-            }
+            var path = tile.insertElement(surfaceIndex + 1);
+            path.type = "footpath";
+            path.baseHeight = baseHeight;
+            path.footpathType = pathObject.index;
+            path.edgesAndCorners = edges;
+            path.slopeDirection = null;
+            path.isWide = false;
+            path.isQueue = false;
+            path.queueBannerDirection = null;
+            path.ride = 0;
+            path.station = 0;
+            path.addition = null;
+            path.isAdditionBroken = false;
+
+            // let tile = map.getTile(x, y);
+            // let surfaceHeight = MapHelper.GetTileSurfaceZ(x, y);
+
+
+            // if ((viewRotation === 0 && x !== left) || (viewRotation === 1 && y !== bottom)) {
+            //     let elementN = MapHelper.PlaceWall(tile, roadLineWall, surfaceHeight - lineStyleHeights[lineStyle]);
+            //     MapHelper.SetTileElementRotation(tile, elementN._index, 0 + viewRotation);
+            //     MapHelper.SetPrimaryTileColor(tile, elementN._index, colors[lineColor]);
+            // }
+
+            // if ((viewRotation === 0 && x !== right) || (viewRotation === 1 && y !== top)) {
+            //     let elementS = MapHelper.PlaceWall(tile, roadLineWall, surfaceHeight - lineStyleHeights[lineStyle]);
+            //     MapHelper.SetTileElementRotation(tile, elementS._index, 2 + viewRotation);
+            //     MapHelper.SetPrimaryTileColor(tile, elementS._index, colors[lineColor]);
+            // }
         }
     }
 }
@@ -387,8 +206,121 @@ var main = function main() {
                     if (window != null) window.close();
                 }
             });
-            if (window == null) window = new SwimmingPoolWindow(objectHelper);
-            window.open();
+            if (window == null) {
+                var width = 300;
+                var buttonWidth = 50;
+                var switchWidth = 32;
+                var buttonsHeight = 40 + 18 * 2;
+                var paths = objectHelper.GetAllPaths().map(function (p) {
+                    return p.name;
+                });
+                window = ui.openWindow({
+                    classification: 'park',
+                    title: "Swimming Pool",
+                    width: width,
+                    height: buttonsHeight + 20,
+                    widgets: [{
+                        type: 'label',
+                        name: 'label-description',
+                        x: 3,
+                        y: 23,
+                        width: width - 6,
+                        height: 26,
+                        text: "Drag to construct roadlines."
+                    }, {
+                        type: 'button',
+                        name: "button-cancel",
+                        x: width - buttonWidth - 6,
+                        y: buttonsHeight,
+                        width: buttonWidth,
+                        height: 16,
+                        text: "Cancel",
+                        onClick: function onClick() {
+                            if (window != null) window.close();
+                        }
+                    }, {
+                        type: 'label',
+                        name: 'label-direction',
+                        x: 3,
+                        y: buttonsHeight + 2,
+                        width: width - 6,
+                        height: 26,
+                        text: "Direction:"
+                    }, {
+                        type: 'button',
+                        name: "button-left",
+                        x: 3 + 60,
+                        y: buttonsHeight,
+                        width: switchWidth,
+                        height: 16,
+                        text: "\\",
+                        onClick: function onClick() {
+                            direction = 0;
+                        }
+                    }, {
+                        type: 'button',
+                        name: "button-right",
+                        x: 3 + switchWidth + 8 + 60,
+                        y: buttonsHeight,
+                        width: switchWidth,
+                        height: 16,
+                        text: "/",
+                        onClick: function onClick() {
+                            direction = 1;
+                        }
+                    }, {
+                        type: 'label',
+                        name: 'label-style',
+                        x: 3,
+                        y: 40,
+                        width: 60 - 6,
+                        height: 26,
+                        text: "Style:"
+                    }, {
+                        type: "dropdown",
+                        x: 3 + 60,
+                        y: 40,
+                        width: width - 6 - (3 + 60),
+                        height: 12,
+                        name: "paths-dropdown",
+                        text: "",
+                        items: paths,
+                        selectedIndex: pathType,
+                        onChange: function onChange(e) {
+                            pathType = e;
+                        }
+                    }, {
+                        type: 'label',
+                        name: 'label-color',
+                        x: 3,
+                        y: 40 + 18,
+                        width: 60 - 6,
+                        height: 26,
+                        text: "Color:"
+                    }, {
+                        type: "dropdown",
+                        x: 3 + 60,
+                        y: 40 + 18,
+                        width: width - 6 - (3 + 60),
+                        height: 12,
+                        name: "line_color",
+                        text: "",
+                        items: ["White", "Yellow", "Blue", "Grey", "Black"],
+                        selectedIndex: lineColor,
+                        onChange: function onChange(e) {
+                            lineColor = e;
+                        }
+                    }],
+                    onClose: function onClose() {
+                        window = null;
+                        if (ui.tool && ui.tool.id == "swimming-pool-tool") {
+                            ui.tool.cancel();
+                        }
+                    }
+                });
+            } else {
+                window.bringToFront();
+            }
         }
     });
 };
