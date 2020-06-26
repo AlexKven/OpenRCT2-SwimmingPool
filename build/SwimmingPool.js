@@ -113,7 +113,7 @@ var ObjectHelper = function () {
         _classCallCheck(this, ObjectHelper);
     }
 
-    _createClass(ObjectHelper, null, [{
+    _createClass(ObjectHelper, [{
         key: "GetObjectIndex",
         value: function GetObjectIndex(type, identifier) {
             var list = context.getAllObjects(type);
@@ -124,9 +124,149 @@ var ObjectHelper = function () {
                 }
             }
         }
+    }, {
+        key: "GetAllPaths",
+        value: function GetAllPaths() {
+            if (this.paths) return this.paths;
+            this.paths = context.getAllObjects("footpath");
+            return this.GetAllPaths();
+        }
     }]);
 
     return ObjectHelper;
+}();
+
+var SwimmingPoolWindow = function () {
+    function SwimmingPoolWindow(objectHelper) {
+        _classCallCheck(this, SwimmingPoolWindow);
+
+        var windowWidth = 300;
+        var buttonWidth = 50;
+        var switchWidth = 32;
+        var windowHeight = 40 + 18 * 2;
+        var window = null;
+        var paths = objectHelper.GetAllPaths().map(function (p) {
+            return p.name;
+        });
+        var desc = {
+            classification: 'park',
+            title: "Swimming Pool",
+            width: windowWidth,
+            height: windowHeight + 20,
+            widgets: [{
+                type: 'label',
+                name: 'label-description',
+                x: 3,
+                y: 23,
+                width: windowWidth - 6,
+                height: 26,
+                text: "Drag to construct roadlines."
+            }, {
+                type: 'button',
+                name: "button-cancel",
+                x: windowWidth - buttonWidth - 6,
+                y: windowHeight,
+                width: buttonWidth,
+                height: 16,
+                text: "Cancel",
+                onClick: function onClick() {
+                    if (window != null) window.close();
+                }
+            }, {
+                type: 'label',
+                name: 'label-direction',
+                x: 3,
+                y: windowHeight + 2,
+                width: windowWidth - 6,
+                height: 26,
+                text: "Direction:"
+            }, {
+                type: 'button',
+                name: "button-left",
+                x: 3 + 60,
+                y: windowHeight,
+                width: switchWidth,
+                height: 16,
+                text: "\\",
+                onClick: function onClick() {
+                    direction = 0;
+                }
+            }, {
+                type: 'button',
+                name: "button-right",
+                x: 3 + switchWidth + 8 + 60,
+                y: windowHeight,
+                width: switchWidth,
+                height: 16,
+                text: "/",
+                onClick: function onClick() {
+                    direction = 1;
+                }
+            }, {
+                type: 'label',
+                name: 'label-path',
+                x: 3,
+                y: 40,
+                width: 60 - 6,
+                height: 26,
+                text: "Path:"
+            }, {
+                type: "dropdown",
+                x: 3 + 60,
+                y: 40,
+                width: windowWidth - 6 - (3 + 60),
+                height: 12,
+                name: "dropdown-path",
+                text: "",
+                items: paths,
+                selectedIndex: lineStyle,
+                onChange: function onChange(e) {
+                    lineStyle = e;
+                }
+            }, {
+                type: 'label',
+                name: 'label-color',
+                x: 3,
+                y: 40 + 18,
+                width: 60 - 6,
+                height: 26,
+                text: "Color:"
+            }, {
+                type: "dropdown",
+                x: 3 + 60,
+                y: 40 + 18,
+                width: windowWidth - 6 - (3 + 60),
+                height: 12,
+                name: "line_color",
+                text: "",
+                items: ["White", "Yellow", "Blue", "Grey", "Black"],
+                selectedIndex: lineColor,
+                onChange: function onChange(e) {
+                    lineColor = e;
+                }
+            }],
+            onClose: function onClose() {
+                window = null;
+                if (ui.tool && ui.tool.id == "swimming-pool-tool") {
+                    ui.tool.cancel();
+                }
+            }
+        };
+    }
+
+    _createClass(SwimmingPoolWindow, [{
+        key: "open",
+        value: function open() {
+            if (this.window == null) this.window = ui.openWindow(this.desc);else this.window.bringToFront();
+        }
+    }, {
+        key: "close",
+        value: function close() {
+            if (this.window) this.window.close();
+        }
+    }]);
+
+    return SwimmingPoolWindow;
 }();
 
 // /// <reference path="../../../bin/openrct2.d.ts" />
@@ -134,14 +274,19 @@ var ObjectHelper = function () {
 var downCoord = void 0;
 var currentCoord = void 0;
 
-var direction = 0;
+var direction$1 = 0;
 
-var lineStyle = 0;
-var lineColor = 0;
+var lineStyle$1 = 0;
+var lineColor$1 = 0;
 var lineStyles = ["rct2.walllt32", "rct2.walllt32", "rct2.wallrh32", "rct2.wc17", "rct2.wc17"];
 var lineStyleHeights = [4, 4, 4, 2, 2];
 var striped = [false, true, false, false, true];
 var colors = [2, 18, 6, 1, 0];
+
+var objectHelper = void 0;
+function initializeHelpers() {
+    objectHelper = new ObjectHelper();
+}
 
 function selectTheMap() {
     var left = Math.min(downCoord.x, currentCoord.x);
@@ -160,20 +305,20 @@ function finishSelection() {
     var top = Math.floor(Math.min(downCoord.y, currentCoord.y) / 32);
     var bottom = Math.floor(Math.max(downCoord.y, currentCoord.y) / 32);
 
-    var roadLineWall = ObjectHelper.GetObjectIndex("wall", lineStyles[lineStyle]);
+    var roadLineWall = objectHelper.GetObjectIndex("wall", lineStyles[lineStyle$1]);
 
     var viewRotation = ui.mainViewport.rotation;
-    viewRotation += direction;
+    viewRotation += direction$1;
     while (viewRotation > 1) {
         viewRotation -= 2;
     }
 
     for (var x = left; x <= right; x++) {
-        if (striped[lineStyle] && viewRotation === 1 && x % 2 === 0) {
+        if (striped[lineStyle$1] && viewRotation === 1 && x % 2 === 0) {
             continue;
         }
         for (var y = top; y <= bottom; y++) {
-            if (striped[lineStyle] && viewRotation === 0 && y % 2 === 0) {
+            if (striped[lineStyle$1] && viewRotation === 0 && y % 2 === 0) {
                 continue;
             }
 
@@ -181,15 +326,15 @@ function finishSelection() {
             var surfaceHeight = MapHelper.GetTileSurfaceZ(x, y);
 
             if (viewRotation === 0 && x !== left || viewRotation === 1 && y !== bottom) {
-                var elementN = MapHelper.PlaceWall(tile, roadLineWall, surfaceHeight - lineStyleHeights[lineStyle]);
+                var elementN = MapHelper.PlaceWall(tile, roadLineWall, surfaceHeight - lineStyleHeights[lineStyle$1]);
                 MapHelper.SetTileElementRotation(tile, elementN._index, 0 + viewRotation);
-                MapHelper.SetPrimaryTileColor(tile, elementN._index, colors[lineColor]);
+                MapHelper.SetPrimaryTileColor(tile, elementN._index, colors[lineColor$1]);
             }
 
             if (viewRotation === 0 && x !== right || viewRotation === 1 && y !== top) {
-                var elementS = MapHelper.PlaceWall(tile, roadLineWall, surfaceHeight - lineStyleHeights[lineStyle]);
+                var elementS = MapHelper.PlaceWall(tile, roadLineWall, surfaceHeight - lineStyleHeights[lineStyle$1]);
                 MapHelper.SetTileElementRotation(tile, elementS._index, 2 + viewRotation);
-                MapHelper.SetPrimaryTileColor(tile, elementS._index, colors[lineColor]);
+                MapHelper.SetPrimaryTileColor(tile, elementS._index, colors[lineColor$1]);
             }
         }
     }
@@ -201,6 +346,7 @@ var main = function main() {
     }
     var window = null;
     ui.registerMenuItem("Swimming Pool", function () {
+        initializeHelpers();
         if (ui.tool && ui.tool.id == "swimming-pool-tool") {
             ui.tool.cancel();
         } else {
@@ -241,119 +387,8 @@ var main = function main() {
                     if (window != null) window.close();
                 }
             });
-
-            if (window == null) {
-                var width = 300;
-                var buttonWidth = 50;
-                var switchWidth = 32;
-                var buttonsHeight = 40 + 18 * 2;
-                window = ui.openWindow({
-                    classification: 'park',
-                    title: "Swimming Pool",
-                    width: width,
-                    height: buttonsHeight + 20,
-                    widgets: [{
-                        type: 'label',
-                        name: 'label-description',
-                        x: 3,
-                        y: 23,
-                        width: width - 6,
-                        height: 26,
-                        text: "Drag to construct roadlines."
-                    }, {
-                        type: 'button',
-                        name: "button-cancel",
-                        x: width - buttonWidth - 6,
-                        y: buttonsHeight,
-                        width: buttonWidth,
-                        height: 16,
-                        text: "Cancel",
-                        onClick: function onClick() {
-                            if (window != null) window.close();
-                        }
-                    }, {
-                        type: 'label',
-                        name: 'label-direction',
-                        x: 3,
-                        y: buttonsHeight + 2,
-                        width: width - 6,
-                        height: 26,
-                        text: "Direction:"
-                    }, {
-                        type: 'button',
-                        name: "button-left",
-                        x: 3 + 60,
-                        y: buttonsHeight,
-                        width: switchWidth,
-                        height: 16,
-                        text: "\\",
-                        onClick: function onClick() {
-                            direction = 0;
-                        }
-                    }, {
-                        type: 'button',
-                        name: "button-right",
-                        x: 3 + switchWidth + 8 + 60,
-                        y: buttonsHeight,
-                        width: switchWidth,
-                        height: 16,
-                        text: "/",
-                        onClick: function onClick() {
-                            direction = 1;
-                        }
-                    }, {
-                        type: 'label',
-                        name: 'label-style',
-                        x: 3,
-                        y: 40,
-                        width: 60 - 6,
-                        height: 26,
-                        text: "Style:"
-                    }, {
-                        type: "dropdown",
-                        x: 3 + 60,
-                        y: 40,
-                        width: width - 6 - (3 + 60),
-                        height: 12,
-                        name: "line_dropdown",
-                        text: "",
-                        items: ["Line (Steel Latticework)", "Striped Line (Steel Latticework)", "Dots (Balustrade)", "Weathered Line (Wooden Snow Fence)", "Striped Weathered Line (Wooden Snow Fe"],
-                        selectedIndex: lineStyle,
-                        onChange: function onChange(e) {
-                            lineStyle = e;
-                        }
-                    }, {
-                        type: 'label',
-                        name: 'label-color',
-                        x: 3,
-                        y: 40 + 18,
-                        width: 60 - 6,
-                        height: 26,
-                        text: "Color:"
-                    }, {
-                        type: "dropdown",
-                        x: 3 + 60,
-                        y: 40 + 18,
-                        width: width - 6 - (3 + 60),
-                        height: 12,
-                        name: "line_color",
-                        text: "",
-                        items: ["White", "Yellow", "Blue", "Grey", "Black"],
-                        selectedIndex: lineColor,
-                        onChange: function onChange(e) {
-                            lineColor = e;
-                        }
-                    }],
-                    onClose: function onClose() {
-                        window = null;
-                        if (ui.tool && ui.tool.id == "swimming-pool-tool") {
-                            ui.tool.cancel();
-                        }
-                    }
-                });
-            } else {
-                window.bringToFront();
-            }
+            if (window == null) window = new SwimmingPoolWindow(objectHelper);
+            window.open();
         }
     });
 };
