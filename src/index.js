@@ -93,12 +93,12 @@ let main = function () {
         return;
     }
     let window = null;
-    ui.registerMenuItem("Road Lines", function () {
-        if (ui.tool && ui.tool.id == "road-lines-tool") {
+    ui.registerMenuItem("Swimming Pool", function () {
+        if (ui.tool && ui.tool.id == "swimming-pool-tool") {
             ui.tool.cancel();
         } else {
             ui.activateTool({
-                id: "road-lines-tool",
+                id: "swimming-pool-tool",
                 cursor: "cross_hair",
                 onStart: function (e) {
                     ui.mainViewport.visibilityFlags |= (1 << 7);
@@ -143,7 +143,7 @@ let main = function () {
                 const buttonsHeight = 40 + 18 * 2;
                 window = ui.openWindow({
                     classification: 'park',
-                    title: "Road Lines",
+                    title: "Swimming Pool",
                     width: width,
                     height: buttonsHeight + 20,
                     widgets: [
@@ -251,7 +251,7 @@ let main = function () {
                     ],
                     onClose: function () {
                         window = null;
-                        if (ui.tool && ui.tool.id == "road-lines-tool") {
+                        if (ui.tool && ui.tool.id == "swimming-pool-tool") {
                             ui.tool.cancel();
                         }
                     }
@@ -265,10 +265,10 @@ let main = function () {
 };
 
 registerPlugin({
-    name: 'Road Lines',
-    version: '1.1',
+    name: 'Swimming Pool',
+    version: '1.0',
     licence: 'MIT',
-    authors: ['Oli414'],
+    authors: ['AlexKven'],
     type: 'local',
     main: main
 }); 
