@@ -133,21 +133,13 @@ function finishSelection() {
                     baseHeight = element.baseHeight;
                 }
             }
-            ui.showError("Base height:", `${baseHeight}`);
 
-            var path = tile.insertElement(surfaceIndex + 1);
-            path.type = "footpath";
-            path.baseHeight = baseHeight;
-            path.footpathType = pathObject.index;
-            path.edgesAndCorners = edges;
-            path.slopeDirection = null;
-            path.isWide = false;
-            path.isQueue = false;
-            path.queueBannerDirection = null;
-            path.ride = 0;
-            path.station = 0;
-            path.addition = null;
-            path.isAdditionBroken = false;
+            let pathElement = tile.insertElement(surfaceIndex + 1);
+            pathElement.type = "footpath";
+            pathElement.baseHeight = baseHeight;
+            pathElement.clearanceHeight = 4;
+            pathElement.edgesAndCorners = edges;
+            MapHelper.SetFootpathType(tile, surfaceIndex + 1, pathObject.index);
 
             // let tile = map.getTile(x, y);
             // let surfaceHeight = MapHelper.GetTileSurfaceZ(x, y);

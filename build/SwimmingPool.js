@@ -4,6 +4,127 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
+var MapHelper = function () {
+    function MapHelper() {
+        _classCallCheck(this, MapHelper);
+    }
+
+    _createClass(MapHelper, null, [{
+        key: "InsertTileElement",
+        value: function InsertTileElement(tile, height) {
+            var index = MapHelper.FindPlacementPosition(tile, height);
+            var element = tile.insertElement(index);
+            element._index = index;
+            element.baseHeight = height;
+            return element;
+        }
+    }, {
+        key: "FindPlacementPosition",
+        value: function FindPlacementPosition(tile, height) {
+            var index = 0;
+            for (index = 0; index < tile.numElements; index++) {
+                var element = tile.getElement(index);
+                if (element.baseHeight >= height) {
+                    break;
+                }
+            }
+            return index;
+        }
+    }, {
+        key: "GetTileSurfaceZ",
+        value: function GetTileSurfaceZ(x, y) {
+            var tile = map.getTile(x, y);
+            if (tile) {
+                for (var i = 0; i < tile.numElements; i++) {
+                    var element = tile.getElement(i);
+                    if (element && element.type == "surface") {
+                        return element.baseHeight;
+                    }
+                }
+            }
+            return null;
+        }
+    }, {
+        key: "PlaceSmallScenery",
+        value: function PlaceSmallScenery(tile, objectIndex, height) {
+            var orientation = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 0;
+
+            var element = MapHelper.InsertTileElement(tile, height);
+            element.type = "small_scenery";
+            element.object = objectIndex;
+            element.clearanceHeight = height + 1;
+            return element;
+        }
+    }, {
+        key: "PlaceWall",
+        value: function PlaceWall(tile, objectIndex, height) {
+            var orientation = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 0;
+
+            var element = MapHelper.InsertTileElement(tile, height);
+            element.type = "wall";
+            element.object = objectIndex;
+            element.clearanceHeight = height + 1;
+            return element;
+        }
+    }, {
+        key: "PlacePath",
+        value: function PlacePath(tile, objectIndex, height) {
+            var element = MapHelper.InsertTileElement(tile, height);
+            element.type = "footpath";
+            element.object = objectIndex;
+            element.clearanceHeight = height + 1;
+            return element;
+        }
+    }, {
+        key: "GetElementIndex",
+        value: function GetElementIndex(tile, element) {
+            for (var i = 0; i < tile.numElements; i++) {
+                var elementB = tile.getElement(i);
+                if (elementB && element == elementB) {
+                    return i;
+                }
+            }
+            return null;
+        }
+    }, {
+        key: "SetPrimaryTileColor",
+        value: function SetPrimaryTileColor(tile, elementIndex, color) {
+            var data = tile.data;
+            var typeFieldIndex = 6;
+            data[16 * elementIndex + typeFieldIndex] = color;
+            tile.data = data;
+        }
+    }, {
+        key: "SetFootpathType",
+        value: function SetFootpathType(tile, elementIndex, footpathType) {
+            var data = tile.data;
+            var typeFieldIndex = 4;
+            data[16 * elementIndex + typeFieldIndex] = footpathType;
+            tile.data = data;
+        }
+    }, {
+        key: "SetTileElementRotation",
+        value: function SetTileElementRotation(tile, elementIndex, orientation) {
+            var data = tile.data;
+            var typeFieldIndex = 0;
+            var directionMask = 3;
+            data[16 * elementIndex + typeFieldIndex] &= ~directionMask;
+            data[16 * elementIndex + typeFieldIndex] |= orientation & directionMask;
+            tile.data = data;
+        }
+    }, {
+        key: "GetTileElementRotation",
+        value: function GetTileElementRotation(tile, elementIndex) {
+            var data = tile.data;
+            var typeFieldIndex = 0;
+            var directionMask = 3;
+            return data[16 * elementIndex + typeFieldIndex] & directionMask;
+        }
+    }]);
+
+    return MapHelper;
+}();
+
 var ObjectHelper = function () {
     function ObjectHelper() {
         _classCallCheck(this, ObjectHelper);
@@ -124,21 +245,13 @@ function finishSelection() {
                     baseHeight = element.baseHeight;
                 }
             }
-            ui.showError("Base height:", "" + baseHeight);
 
-            var path = tile.insertElement(surfaceIndex + 1);
-            path.type = "footpath";
-            path.baseHeight = baseHeight;
-            path.footpathType = pathObject.index;
-            path.edgesAndCorners = edges;
-            path.slopeDirection = null;
-            path.isWide = false;
-            path.isQueue = false;
-            path.queueBannerDirection = null;
-            path.ride = 0;
-            path.station = 0;
-            path.addition = null;
-            path.isAdditionBroken = false;
+            var pathElement = tile.insertElement(surfaceIndex + 1);
+            pathElement.type = "footpath";
+            pathElement.baseHeight = baseHeight;
+            pathElement.clearanceHeight = 4;
+            pathElement.edgesAndCorners = edges;
+            MapHelper.SetFootpathType(tile, surfaceIndex + 1, pathObject.index);
 
             // let tile = map.getTile(x, y);
             // let surfaceHeight = MapHelper.GetTileSurfaceZ(x, y);

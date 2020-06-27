@@ -74,6 +74,13 @@ class MapHelper {
         tile.data = data;
     }
 
+    static SetFootpathType(tile, elementIndex, footpathType) {
+        let data = tile.data;
+        let typeFieldIndex = 4;
+        data[16 * elementIndex + typeFieldIndex] = footpathType;
+        tile.data = data;
+    }
+
     static SetTileElementRotation(tile, elementIndex, orientation) {
         let data = tile.data;
         let typeFieldIndex = 0;
