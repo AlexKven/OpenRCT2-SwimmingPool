@@ -67,12 +67,12 @@ var MapHelper = function () {
             return element;
         }
     }, {
-        key: "PlacePath",
-        value: function PlacePath(tile, objectIndex, height) {
+        key: "PlaceFootpath",
+        value: function PlaceFootpath(tile, objectIndex, height) {
             var element = MapHelper.InsertTileElement(tile, height);
             element.type = "footpath";
             element.object = objectIndex;
-            element.clearanceHeight = height + 1;
+            element.clearanceHeight = height + 4;
             return element;
         }
     }, {
@@ -182,7 +182,7 @@ function selectTheMap() {
 function validateSelection(left, right, top, bottom) {
     var height = null;
     for (var x = left; x <= right; x++) {
-        for (var y = top; y <= bottom; y++) {
+        for (var y = bottom; y <= top; y++) {
             var tile = map.getTile(x, y);
             var surface = null;
             for (var i = 0; i < tile.numElements && surface == null; i++) {
@@ -200,8 +200,8 @@ function validateSelection(left, right, top, bottom) {
 function finishSelection() {
     var left = Math.floor(Math.min(downCoord.x, currentCoord.x) / 32);
     var right = Math.floor(Math.max(downCoord.x, currentCoord.x) / 32);
-    var top = Math.floor(Math.min(downCoord.y, currentCoord.y) / 32);
-    var bottom = Math.floor(Math.max(downCoord.y, currentCoord.y) / 32);
+    var bottom = Math.floor(Math.min(downCoord.y, currentCoord.y) / 32);
+    var top = Math.floor(Math.max(downCoord.y, currentCoord.y) / 32);
 
     // const roadLineWall = objectHelper.GetObjectIndex("wall", lineStyles[lineStyle]);
 
@@ -218,11 +218,11 @@ function finishSelection() {
         return;
     }
     for (var x = left; x <= right; x++) {
-        for (var y = top; y <= bottom; y++) {
+        for (var y = bottom; y <= top; y++) {
             var xAbove = x < right;
             var xBelow = x > left;
-            var yAbove = y < bottom;
-            var yBelow = y > top;
+            var yAbove = y < top;
+            var yBelow = y > bottom;
             var edges = 0;
             if (xAbove) edges += 4;
             if (xBelow) edges += 1;
@@ -235,23 +235,22 @@ function finishSelection() {
 
             var tile = map.getTile(x, y);
             var surface = null;
-            var surfaceIndex = -1;
             var baseHeight = 0;
             for (var i = 0; i < tile.numElements && surface == null; i++) {
                 var element = tile.getElement(i);
                 if (element.type == "surface") {
                     surface = element;
-                    surfaceIndex = i;
                     baseHeight = element.baseHeight;
                 }
             }
 
-            var pathElement = tile.insertElement(surfaceIndex + 1);
-            pathElement.type = "footpath";
-            pathElement.baseHeight = baseHeight;
-            pathElement.clearanceHeight = 4;
+            // let pathElement = tile.insertElement(surfaceIndex + 1);
+            // pathElement.type = "footpath";
+            // pathElement.baseHeight = baseHeight;
+            // pathElement.clearanceHeight = 4;
+            var pathElement = MapHelper.PlaceFootpath(tile, pathObject.index, surface.baseHeight);
             pathElement.edgesAndCorners = edges;
-            MapHelper.SetFootpathType(tile, surfaceIndex + 1, pathObject.index);
+            // MapHelper.SetFootpathType(tile, surfaceIndex + 1, pathObject.index);
 
             // let tile = map.getTile(x, y);
             // let surfaceHeight = MapHelper.GetTileSurfaceZ(x, y);

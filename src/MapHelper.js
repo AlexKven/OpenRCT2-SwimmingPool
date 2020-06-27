@@ -48,12 +48,12 @@ class MapHelper {
         return element;
     }
 
-    static PlacePath(tile, objectIndex, height)
+    static PlaceFootpath(tile, objectIndex, height)
     {
         let element = MapHelper.InsertTileElement(tile, height);
         element.type = "footpath";
         element.object = objectIndex;
-        element.clearanceHeight = height + 1;
+        element.clearanceHeight = height + 4;
         return element;
     }
 

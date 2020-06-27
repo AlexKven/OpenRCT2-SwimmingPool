@@ -56,7 +56,7 @@ function validateSelection(left, right, top, bottom)
 {
     var height = null;
     for (let x = left; x <= right; x++) {
-        for (let y = top; y <= bottom; y++) {
+        for (let y = bottom; y <= top; y++) {
             let tile = map.getTile(x, y);
             let surface = null;
             for (let i = 0; i < tile.numElements && surface == null; i++) {
@@ -80,8 +80,8 @@ function validateSelection(left, right, top, bottom)
 function finishSelection() {
     let left = Math.floor(Math.min(downCoord.x, currentCoord.x) / 32);
     let right = Math.floor(Math.max(downCoord.x, currentCoord.x) / 32);
-    let top = Math.floor(Math.min(downCoord.y, currentCoord.y) / 32);
-    let bottom = Math.floor(Math.max(downCoord.y, currentCoord.y) / 32);
+    let bottom = Math.floor(Math.min(downCoord.y, currentCoord.y) / 32);
+    let top = Math.floor(Math.max(downCoord.y, currentCoord.y) / 32);
 
     // const roadLineWall = objectHelper.GetObjectIndex("wall", lineStyles[lineStyle]);
 
@@ -98,11 +98,11 @@ function finishSelection() {
         return;
     }
     for (let x = left; x <= right; x++) {
-        for (let y = top; y <= bottom; y++) {
+        for (let y = bottom; y <= top; y++) {
             let xAbove = x < right;
             let xBelow = x > left;
-            let yAbove = y < bottom;
-            let yBelow = y > top;
+            let yAbove = y < top;
+            let yBelow = y > bottom;
             let edges = 0;
             if (xAbove)
                 edges += 4;
@@ -134,12 +134,13 @@ function finishSelection() {
                 }
             }
 
-            let pathElement = tile.insertElement(surfaceIndex + 1);
-            pathElement.type = "footpath";
-            pathElement.baseHeight = baseHeight;
-            pathElement.clearanceHeight = 4;
+            // let pathElement = tile.insertElement(surfaceIndex + 1);
+            // pathElement.type = "footpath";
+            // pathElement.baseHeight = baseHeight;
+            // pathElement.clearanceHeight = 4;
+            let pathElement = MapHelper.PlaceFootpath(tile, pathObject.index, surface.baseHeight);
             pathElement.edgesAndCorners = edges;
-            MapHelper.SetFootpathType(tile, surfaceIndex + 1, pathObject.index);
+            // MapHelper.SetFootpathType(tile, surfaceIndex + 1, pathObject.index);
 
             // let tile = map.getTile(x, y);
             // let surfaceHeight = MapHelper.GetTileSurfaceZ(x, y);
