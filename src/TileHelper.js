@@ -247,8 +247,7 @@ class TileHelper {
         park.cash -= cost;
     }
 
-    // Doesn't work right now
-    static ConstructPool(tile, analysis, regionInfo, objectsInfo) {
+    static PreConstructPool(tile, analysis, regionInfo, objectsInfo) {
         let cost = 0;
 
         let minClearance = analysis.landHeight - 4;
@@ -260,24 +259,38 @@ class TileHelper {
             cost += 900;
         }
         
+        // Preclear
+        let result = this.PreClearArea(analysis, minClearance, maxClearance);
+        if (!result.success)
+            return { success: false };
+        else {
+            result.tile = tile;
+            result.analysis = analysis;
+            result.regionInfo = regionInfo;
+            result.objectsInfo = objectsInfo;
+            result.minClearance = minClearance;
+            result.maxClearance = maxClearance;
+            result.cost += cost;
+            return result;
+        }
+    }
+    
+    static ConstructPool(preconstruction) {
+        let tile = preconstruction.tile;
+        let analysis = preconstruction.analysis;
+        let regionInfo = preconstruction.regionInfo;
+        let objectsInfo = preconstruction.objectsInfo;
+        let cost = preconstruction.cost;
+        let indicesToRemove = preconstruction.indicesToRemove;
+        
         // Destruct
-        let removal = this.PreClearArea(analysis, minClearance, maxClearance);
-        if (!removal.success)
-            return analysis;
-        cost += removal.cost;
-        if (removal.indicesToRemove.length > 0)
+        if (indicesToRemove.length > 0)
         {
-            removal.indicesToRemove.sort();
-            for (let i = removal.indicesToRemove.length - 1; i >= 0; i--) {
-                tile.removeElement(removal.indicesToRemove[i]);
+            indicesToRemove.sort();
+            for (let i = indicesToRemove.length - 1; i >= 0; i--) {
+                tile.removeElement(indicesToRemove[i]);
             }
             analysis = this.AnalyzeTile(tile);
-        }
-
-        // Check cost
-        if (cost > 0 && cost > park.cash) {
-            ui.showError("Can't build pool here:", `Not enough cash - requires $${cost}`);
-            return analysis;
         }
 
         // Move land

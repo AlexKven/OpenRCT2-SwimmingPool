@@ -121,7 +121,7 @@ function finishSelection() {
             let tile = map.getTile(x, y);
             let analysis = selection.tiles[x - left][y - bottom];
 
-            var preconstruction = TileHelper.PreConstructDeck(tile, analysis, regionInfo,
+            var preconstruction = TileHelper.PreConstructPool(tile, analysis, regionInfo,
                 { footpathObject: footpathObject });
             if (!preconstruction.success)
                 return;
@@ -160,10 +160,10 @@ function finishSelection() {
     }
 
     while (preconstructions.length > 0) {
-        TileHelper.ConstructDeck(preconstructions.pop());
+        TileHelper.ConstructPool(preconstructions.pop());
     }
     } catch (ex) {
-        // ui.showError("Exception:", `${ex}`);
+         ui.showError("Exception:", `${ex}`);
     }
 }
 

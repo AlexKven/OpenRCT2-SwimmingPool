@@ -266,12 +266,9 @@ var TileHelper = function () {
 
             park.cash -= cost;
         }
-
-        // Doesn't work right now
-
     }, {
-        key: "ConstructPool",
-        value: function ConstructPool(tile, analysis, regionInfo, objectsInfo) {
+        key: "PreConstructPool",
+        value: function PreConstructPool(tile, analysis, regionInfo, objectsInfo) {
             var cost = 0;
 
             var minClearance = analysis.landHeight - 4;
@@ -283,22 +280,36 @@ var TileHelper = function () {
                 cost += 900;
             }
 
+            // Preclear
+            var result = this.PreClearArea(analysis, minClearance, maxClearance);
+            if (!result.success) return { success: false };else {
+                result.tile = tile;
+                result.analysis = analysis;
+                result.regionInfo = regionInfo;
+                result.objectsInfo = objectsInfo;
+                result.minClearance = minClearance;
+                result.maxClearance = maxClearance;
+                result.cost += cost;
+                return result;
+            }
+        }
+    }, {
+        key: "ConstructPool",
+        value: function ConstructPool(preconstruction) {
+            var tile = preconstruction.tile;
+            var analysis = preconstruction.analysis;
+            var regionInfo = preconstruction.regionInfo;
+            var objectsInfo = preconstruction.objectsInfo;
+            var cost = preconstruction.cost;
+            var indicesToRemove = preconstruction.indicesToRemove;
+
             // Destruct
-            var removal = this.PreClearArea(analysis, minClearance, maxClearance);
-            if (!removal.success) return analysis;
-            cost += removal.cost;
-            if (removal.indicesToRemove.length > 0) {
-                removal.indicesToRemove.sort();
-                for (var i = removal.indicesToRemove.length - 1; i >= 0; i--) {
-                    tile.removeElement(removal.indicesToRemove[i]);
+            if (indicesToRemove.length > 0) {
+                indicesToRemove.sort();
+                for (var i = indicesToRemove.length - 1; i >= 0; i--) {
+                    tile.removeElement(indicesToRemove[i]);
                 }
                 analysis = this.AnalyzeTile(tile);
-            }
-
-            // Check cost
-            if (cost > 0 && cost > park.cash) {
-                ui.showError("Can't build pool here:", "Not enough cash - requires $" + cost);
-                return analysis;
             }
 
             // Move land
@@ -408,7 +419,7 @@ function finishSelection() {
                 var tile = map.getTile(x, y);
                 var analysis = selection.tiles[x - left][y - bottom];
 
-                var preconstruction = TileHelper.PreConstructDeck(tile, analysis, regionInfo, { footpathObject: footpathObject });
+                var preconstruction = TileHelper.PreConstructPool(tile, analysis, regionInfo, { footpathObject: footpathObject });
                 if (!preconstruction.success) return;
                 totalCost += preconstruction.cost;
                 preconstructions.push(preconstruction);
@@ -445,10 +456,10 @@ function finishSelection() {
         }
 
         while (preconstructions.length > 0) {
-            TileHelper.ConstructDeck(preconstructions.pop());
+            TileHelper.ConstructPool(preconstructions.pop());
         }
     } catch (ex) {
-        // ui.showError("Exception:", `${ex}`);
+        ui.showError("Exception:", "" + ex);
     }
 }
 
