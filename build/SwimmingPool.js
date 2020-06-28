@@ -4,127 +4,6 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var MapHelper = function () {
-    function MapHelper() {
-        _classCallCheck(this, MapHelper);
-    }
-
-    _createClass(MapHelper, null, [{
-        key: "InsertTileElement",
-        value: function InsertTileElement(tile, height) {
-            var index = MapHelper.FindPlacementPosition(tile, height);
-            var element = tile.insertElement(index);
-            element._index = index;
-            element.baseHeight = height;
-            return element;
-        }
-    }, {
-        key: "FindPlacementPosition",
-        value: function FindPlacementPosition(tile, height) {
-            var index = 0;
-            for (index = 0; index < tile.numElements; index++) {
-                var element = tile.getElement(index);
-                if (element.baseHeight >= height) {
-                    break;
-                }
-            }
-            return index;
-        }
-    }, {
-        key: "GetTileSurfaceZ",
-        value: function GetTileSurfaceZ(x, y) {
-            var tile = map.getTile(x, y);
-            if (tile) {
-                for (var i = 0; i < tile.numElements; i++) {
-                    var element = tile.getElement(i);
-                    if (element && element.type == "surface") {
-                        return element.baseHeight;
-                    }
-                }
-            }
-            return null;
-        }
-    }, {
-        key: "PlaceSmallScenery",
-        value: function PlaceSmallScenery(tile, objectIndex, height) {
-            var orientation = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 0;
-
-            var element = MapHelper.InsertTileElement(tile, height);
-            element.type = "small_scenery";
-            element.object = objectIndex;
-            element.clearanceHeight = height + 1;
-            return element;
-        }
-    }, {
-        key: "PlaceWall",
-        value: function PlaceWall(tile, objectIndex, height) {
-            var orientation = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 0;
-
-            var element = MapHelper.InsertTileElement(tile, height);
-            element.type = "wall";
-            element.object = objectIndex;
-            element.clearanceHeight = height + 1;
-            return element;
-        }
-    }, {
-        key: "PlaceFootpath",
-        value: function PlaceFootpath(tile, objectIndex, height) {
-            var element = MapHelper.InsertTileElement(tile, height);
-            element.type = "footpath";
-            element.object = objectIndex;
-            element.clearanceHeight = height + 4;
-            return element;
-        }
-    }, {
-        key: "GetElementIndex",
-        value: function GetElementIndex(tile, element) {
-            for (var i = 0; i < tile.numElements; i++) {
-                var elementB = tile.getElement(i);
-                if (elementB && element == elementB) {
-                    return i;
-                }
-            }
-            return null;
-        }
-    }, {
-        key: "SetPrimaryTileColor",
-        value: function SetPrimaryTileColor(tile, elementIndex, color) {
-            var data = tile.data;
-            var typeFieldIndex = 6;
-            data[16 * elementIndex + typeFieldIndex] = color;
-            tile.data = data;
-        }
-    }, {
-        key: "SetFootpathType",
-        value: function SetFootpathType(tile, elementIndex, footpathType) {
-            var data = tile.data;
-            var typeFieldIndex = 4;
-            data[16 * elementIndex + typeFieldIndex] = footpathType;
-            tile.data = data;
-        }
-    }, {
-        key: "SetTileElementRotation",
-        value: function SetTileElementRotation(tile, elementIndex, orientation) {
-            var data = tile.data;
-            var typeFieldIndex = 0;
-            var directionMask = 3;
-            data[16 * elementIndex + typeFieldIndex] &= ~directionMask;
-            data[16 * elementIndex + typeFieldIndex] |= orientation & directionMask;
-            tile.data = data;
-        }
-    }, {
-        key: "GetTileElementRotation",
-        value: function GetTileElementRotation(tile, elementIndex) {
-            var data = tile.data;
-            var typeFieldIndex = 0;
-            var directionMask = 3;
-            return data[16 * elementIndex + typeFieldIndex] & directionMask;
-        }
-    }]);
-
-    return MapHelper;
-}();
-
 var ObjectHelper = function () {
     function ObjectHelper() {
         _classCallCheck(this, ObjectHelper);
@@ -153,6 +32,166 @@ var ObjectHelper = function () {
     return ObjectHelper;
 }();
 
+var TileHelper = function () {
+    function TileHelper() {
+        _classCallCheck(this, TileHelper);
+    }
+
+    _createClass(TileHelper, null, [{
+        key: "CalculatePathEdges",
+
+        // 'pAB' = X above, Y below
+        // 'pB0' = X below, Y same, etc.
+        value: function CalculatePathEdges(pB0, pA0, p0B, p0A, pBA, pAA, pAB, pBB) {
+            var result = 0;
+            if (pB0) result += 1;
+            if (pA0) result += 4;
+            if (p0A) result += 2;
+            if (p0B) result += 8;
+            if (pBA && pB0 && p0A) result += 16;
+            if (pAA && pA0 && p0A) result += 32;
+            if (pAB && pA0 && p0B) result += 64;
+            if (pBB && pB0 && p0B) result += 128;
+            return result;
+        }
+    }, {
+        key: "AnalyzeTile",
+        value: function AnalyzeTile(tile) {
+            var result = {
+                hasSurface: false,
+                footpaths: [],
+                tracks: [],
+                smallSceneries: [],
+                walls: [],
+                entrances: [],
+                largeSceneries: [],
+                banners: [] };
+            for (var i = 0; i < tile.numElements; i++) {
+                var element = tile.getElement(i);
+                element.tileIndex = i;
+
+                switch (element.type) {
+                    case "surface":
+                        result.hasSurface = true;
+                        result.landHeight = element.baseHeight;
+                        result.waterHeight = element.waterHeight / 8;
+                        result.hasOwnership = element.hasOwnership;
+                        result.slope = element.slope;
+                        result.surfaceIndex = i;
+                        result.surface = element;
+                        break;
+                    case "footpath":
+                        result.footpaths.push(element);
+                        break;
+                    case "track":
+                        result.tracks.push(element);
+                        break;
+                    case "small_scenery":
+                        result.smallSceneries.push(element);
+                        break;
+                    case "wall":
+                        result.walls.push(element);
+                        break;
+                    case "entrance":
+                        result.entrances.push(element);
+                        break;
+                    case "large_scenery":
+                        result.largeSceneries.push(element);
+                        break;
+                    case "banner":
+                        result.banners.push(element);
+                        break;
+                }
+            }
+            return result;
+        }
+    }, {
+        key: "ConstructDeck",
+        value: function ConstructDeck(tile, analysis) {
+            var cost = 0;
+
+            var indicesToRemove = [];
+            var minClearance = analysis.landHeight;
+            var maxClearance = analysis.landHeight + 4;
+            if (analysis.waterHeight > 0) {
+                maxClearance += 4;
+                cost += 400;
+            }
+
+            var element = void 0;
+            var object = void 0;
+            for (var i = 0; i < analysis.footpaths.length; i++) {
+                element = analysis.footpaths[i];
+                if (element.baseHeight >= minClearance && element.baseHeight <= maxClearance) {
+                    indicesToRemove.push(element.tileIndex);
+                    cost -= 100;
+                }
+            }
+            for (var _i = 0; _i < analysis.tracks.length; _i++) {
+                element = analysis.tracks[_i];
+                if (element.baseHeight >= minClearance && element.baseHeight <= maxClearance) {
+                    ui.showError("Can't build pool here:", "Track in the way");
+                    return analysis;
+                }
+            }
+            for (var _i2 = 0; _i2 < analysis.smallSceneries.length; _i2++) {
+                element = analysis.smallSceneries[_i2];
+                if (element.baseHeight >= minClearance && element.baseHeight <= maxClearance) {
+                    indicesToRemove.push(element.tileIndex);
+                    object = context.getObject("small_scenery", element.object);
+                    cost += object.removalPrice * 10;
+                }
+            }
+            for (var _i3 = 0; _i3 < analysis.walls.length; _i3++) {
+                element = analysis.walls[_i3];
+                if (element.baseHeight >= minClearance && element.baseHeight <= maxClearance) {
+                    indicesToRemove.push(element.tileIndex);
+                }
+            }
+            for (var _i4 = 0; _i4 < analysis.entrances.length; _i4++) {
+                element = analysis.entrances[_i4];
+                if (element.baseHeight >= minClearance && element.baseHeight <= maxClearance) {
+                    ui.showError("Can't build pool here:", "Entrance or exit in the way");
+                    return analysis;
+                }
+            }
+            for (var _i5 = 0; _i5 < analysis.largeSceneries.length; _i5++) {
+                element = analysis.largeSceneries[_i5];
+                if (element.baseHeight >= minClearance && element.baseHeight <= maxClearance) {
+                    ui.showError("Can't build pool here:", "Large scenery in the way");
+                    return analysis;
+                }
+            }
+            for (var _i6 = 0; _i6 < analysis.banners.length; _i6++) {
+                element = analysis.banners[_i6];
+                if (element.baseHeight >= minClearance && element.baseHeight <= maxClearance) {
+                    ui.showError("Can't build pool here:", "Banner in the way");
+                    return analysis;
+                }
+            }
+
+            if (cost > 0 && cost > park.cash) {
+                ui.showError("Can't build pool here:", "Not enough cash - required $" + cost);
+                return analysis;
+            }
+            if (indicesToRemove.length > 0) {
+                indicesToRemove.sort();
+                for (var _i7 = indicesToRemove.length - 1; _i7 >= 0; _i7--) {
+                    tile.removeElement(indicesToRemove[_i7]);
+                }
+                analysis = this.AnalyzeTile(tile);
+            }
+
+            if (analysis.waterHeight > 0) analysis.surface.baseHeight = analysis.waterHeight;
+
+            park.cash -= cost;
+            return analysis;
+        }
+    }]);
+
+    return TileHelper;
+}();
+
 // /// <reference path="../../../bin/openrct2.d.ts" />
 
 var downCoord = void 0;
@@ -179,22 +218,26 @@ function selectTheMap() {
     };
 }
 
-function validateSelection(left, right, top, bottom) {
+function analyzeSelection(left, right, top, bottom) {
+    var selection = { errors: [], tiles: [] };
     var height = null;
     for (var x = left; x <= right; x++) {
+        var column = [];
         for (var y = bottom; y <= top; y++) {
-            var tile = map.getTile(x, y);
-            var surface = null;
-            for (var i = 0; i < tile.numElements && surface == null; i++) {
-                var element = tile.getElement(i);
-                if (element.type == "surface") surface = element;
+            var analysis = TileHelper.AnalyzeTile(map.getTile(x, y));
+
+            if (!analysis.hasSurface) selection.errors.push("There is no surface here.");else {
+                var poolHeight = analysis.landHeight;
+                if (analysis.waterHeight == poolHeight + 4) poolHeight += 4;
+                if (analysis.slope != 0) selection.errors.push("Land must be flat.");
+                if (height == null) height = poolHeight;else if (poolHeight != height) selection.errors.push("Land (or pool) must be at the same height.");
             }
-            if (surface == null) return "There is no land here.";
-            if (surface.slope != 0) return "Land must be flat.";
-            if (height == null) height = surface.baseHeight;else if (height != surface.baseHeight) return "Entire area must be at the same height.";
+            column.push(analysis);
         }
+        selection.tiles.push(column);
     }
-    return null;
+    selection.poolHeight = height;
+    return selection;
 }
 
 function finishSelection() {
@@ -212,9 +255,9 @@ function finishSelection() {
     }
 
     var pathObject = objectHelper.GetAllPaths()[pathType];
-    var error = validateSelection(left, right, top, bottom);
-    if (error != null) {
-        ui.showError("Can't build pool here:", error);
+    var selection = analyzeSelection(left, right, top, bottom);
+    if (selection.errors.length > 0) {
+        ui.showError("Can't build pool here:", selection.errors[0]);
         return;
     }
     for (var x = left; x <= right; x++) {
@@ -223,33 +266,18 @@ function finishSelection() {
             var xBelow = x > left;
             var yAbove = y < top;
             var yBelow = y > bottom;
-            var edges = 0;
-            if (xAbove) edges += 4;
-            if (xBelow) edges += 1;
-            if (yAbove) edges += 2;
-            if (yBelow) edges += 8;
-            if (xBelow && yAbove) edges += 16;
-            if (yAbove && xAbove) edges += 32;
-            if (xAbove && yBelow) edges += 64;
-            if (yBelow && xBelow) edges += 128;
+            var edges = TileHelper.CalculatePathEdges(xBelow, xAbove, yBelow, yAbove, xBelow && yAbove, xAbove && yAbove, xAbove && yBelow, xBelow && yBelow);
 
             var tile = map.getTile(x, y);
-            var surface = null;
-            var baseHeight = 0;
-            for (var i = 0; i < tile.numElements && surface == null; i++) {
-                var element = tile.getElement(i);
-                if (element.type == "surface") {
-                    surface = element;
-                    baseHeight = element.baseHeight;
-                }
-            }
+            var analysis = selection.tiles[x - left][y - bottom];
 
+            analysis = TileHelper.ConstructDeck(tile, analysis);
             // let pathElement = tile.insertElement(surfaceIndex + 1);
             // pathElement.type = "footpath";
             // pathElement.baseHeight = baseHeight;
             // pathElement.clearanceHeight = 4;
-            var pathElement = MapHelper.PlaceFootpath(tile, pathObject.index, surface.baseHeight);
-            pathElement.edgesAndCorners = edges;
+            // let pathElement = MapHelper.PlaceFootpath(tile, pathObject.index, selection.poolHeight);
+            // pathElement.edgesAndCorners = edges;
             // MapHelper.SetFootpathType(tile, surfaceIndex + 1, pathObject.index);
 
             // let tile = map.getTile(x, y);

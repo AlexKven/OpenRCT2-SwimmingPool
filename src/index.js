@@ -2,6 +2,7 @@
 
 import MapHelper from "./MapHelper";
 import ObjectHelper from "./ObjectHelper";
+import TileHelper from "./TileHelper";
 import SwimmingPoolWindow from "./SwimmingPoolWindow";
 
 let downCoord;
@@ -52,29 +53,34 @@ function selectTheMap() {
     };
 }
 
-function validateSelection(left, right, top, bottom)
+function analyzeSelection(left, right, top, bottom)
 {
+    let selection = { errors: [], tiles: [] };
     var height = null;
     for (let x = left; x <= right; x++) {
+        let column = [];
         for (let y = bottom; y <= top; y++) {
-            let tile = map.getTile(x, y);
-            let surface = null;
-            for (let i = 0; i < tile.numElements && surface == null; i++) {
-                let element = tile.getElement(i);
-                if (element.type == "surface")
-                    surface = element;
+            let analysis = TileHelper.AnalyzeTile(map.getTile(x, y));
+            
+            if (!analysis.hasSurface)
+                selection.errors.push("There is no surface here.");
+            else {
+                let poolHeight = analysis.landHeight;
+                if (analysis.waterHeight == poolHeight + 4)
+                    poolHeight += 4;
+                if (analysis.slope != 0)
+                    selection.errors.push("Land must be flat.");
+                if (height == null)
+                    height = poolHeight;
+                else if (poolHeight != height)
+                selection.errors.push("Land (or pool) must be at the same height.");
             }
-            if (surface == null)
-                return "There is no land here.";
-            if (surface.slope != 0)
-                return "Land must be flat.";
-            if (height == null)
-                height = surface.baseHeight;
-            else if (height != surface.baseHeight)
-                return "Entire area must be at the same height.";
+            column.push(analysis);
         }
+        selection.tiles.push(column);
     }
-    return null;
+    selection.poolHeight = height;
+    return selection;
 }
 
 function finishSelection() {
@@ -92,9 +98,9 @@ function finishSelection() {
     }
 
     let pathObject = objectHelper.GetAllPaths()[pathType];
-    var error = validateSelection(left, right, top, bottom);
-    if (error != null) {
-        ui.showError("Can't build pool here:", error);
+    var selection = analyzeSelection(left, right, top, bottom);
+    if (selection.errors.length > 0) {
+        ui.showError("Can't build pool here:", selection.errors[0]);
         return;
     }
     for (let x = left; x <= right; x++) {
@@ -103,43 +109,21 @@ function finishSelection() {
             let xBelow = x > left;
             let yAbove = y < top;
             let yBelow = y > bottom;
-            let edges = 0;
-            if (xAbove)
-                edges += 4;
-            if (xBelow)
-                edges += 1;
-            if (yAbove)
-                edges += 2;
-            if (yBelow)
-                edges += 8;
-            if (xBelow && yAbove)
-                edges += 16;
-            if (yAbove && xAbove)
-                edges += 32;
-            if (xAbove && yBelow)
-                edges += 64;
-            if (yBelow && xBelow)
-                edges += 128;
+            let edges = TileHelper.CalculatePathEdges(
+                xBelow, xAbove, yBelow, yAbove,
+                xBelow && yAbove, xAbove && yAbove,
+                xAbove && yBelow, xBelow && yBelow);
 
             let tile = map.getTile(x, y);
-            let surface = null;
-            let surfaceIndex = -1;
-            let baseHeight = 0;
-            for (let i = 0; i < tile.numElements && surface == null; i++) {
-                let element = tile.getElement(i);
-                if (element.type == "surface") {
-                    surface = element;
-                    surfaceIndex = i;
-                    baseHeight = element.baseHeight;
-                }
-            }
+            let analysis = selection.tiles[x - left][y - bottom];
 
+            analysis = TileHelper.ConstructDeck(tile, analysis);
             // let pathElement = tile.insertElement(surfaceIndex + 1);
             // pathElement.type = "footpath";
             // pathElement.baseHeight = baseHeight;
             // pathElement.clearanceHeight = 4;
-            let pathElement = MapHelper.PlaceFootpath(tile, pathObject.index, surface.baseHeight);
-            pathElement.edgesAndCorners = edges;
+            // let pathElement = MapHelper.PlaceFootpath(tile, pathObject.index, selection.poolHeight);
+            // pathElement.edgesAndCorners = edges;
             // MapHelper.SetFootpathType(tile, surfaceIndex + 1, pathObject.index);
 
             // let tile = map.getTile(x, y);

@@ -51,9 +51,9 @@ class MapHelper {
     static PlaceFootpath(tile, objectIndex, height)
     {
         let element = MapHelper.InsertTileElement(tile, height);
+        element.clearanceHeight = height + 4;
         element.type = "footpath";
         element.object = objectIndex;
-        element.clearanceHeight = height + 4;
         return element;
     }
 
