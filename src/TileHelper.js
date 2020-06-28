@@ -89,6 +89,36 @@ class TileHelper {
 
     }
 
+    static InsertNewWallElement(tile, index, desc) {
+        let wallElement = tile.insertElement(index);
+
+        try {
+            wallElement.type = "wall";
+            // wallElement.clearanceHeight = desc.baseHeight + 4;
+            // footpathElement.slopeDirection = null;
+            // footpathElement.isBlockedByVehicle = false;
+            // footpathElement.isWide = false;
+            // footpathElement.isQueue = false;
+            // footpathElement.queueBannerDirection = null;
+            // footpathElement.addition = null;
+
+            // Specified properties
+            wallElement.baseHeight = desc.baseHeight;
+            wallElement.object = desc.index;
+            
+            let data = tile.data;
+            let baseIndex = 16 * index;
+            let directionMask = 3;
+            ui.showError("data:", `${data[baseIndex + 3]}`);
+            data[baseIndex] &= ~directionMask;
+            data[baseIndex] |= desc.orientation & directionMask;
+            tile.data = data;
+        }
+        catch (ex) {
+            ui.showError("exception:", `${ex}`);
+        }
+    }
+
     static InsertNewFootpathElement(tile, index, desc) {
         let footpathElement = tile.insertElement(index);
 
@@ -249,6 +279,7 @@ class TileHelper {
 
     static PreConstructPool(tile, analysis, regionInfo, objectsInfo) {
         let cost = 0;
+        let wallsToBuild = [false, false, false, false];
 
         let minClearance = analysis.landHeight - 4;
         let maxClearance = analysis.landHeight + 4;
@@ -258,6 +289,26 @@ class TileHelper {
         } else {
             cost += 900;
         }
+        if (objectsInfo.wallObject) {
+            if (regionInfo.x == regionInfo.left) {
+                wallsToBuild[0] = true;
+                cost += 200;
+            }
+            if (regionInfo.x == regionInfo.right) {
+                wallsToBuild[2] = true;
+                cost += 200;
+            }
+            if (regionInfo.y == regionInfo.bottom) {
+                wallsToBuild[3] = true;
+                cost += 200;
+            }
+            if (regionInfo.y == regionInfo.top) {
+                wallsToBuild[1] = true;
+                cost += 200;
+            }
+        }
+
+        // ui.showError("Wall", `${objectsInfo.wallObject}`);
         
         // Preclear
         let result = this.PreClearArea(analysis, minClearance, maxClearance);
@@ -271,6 +322,7 @@ class TileHelper {
             result.minClearance = minClearance;
             result.maxClearance = maxClearance;
             result.cost += cost;
+            result.wallsToBuild = wallsToBuild;
             return result;
         }
     }
@@ -282,6 +334,7 @@ class TileHelper {
         let objectsInfo = preconstruction.objectsInfo;
         let cost = preconstruction.cost;
         let indicesToRemove = preconstruction.indicesToRemove;
+        let wallsToBuild = preconstruction.wallsToBuild;
         
         // Destruct
         if (indicesToRemove.length > 0)
@@ -298,6 +351,16 @@ class TileHelper {
             analysis.landHeight -= 4;
             analysis.surface.baseHeight = analysis.landHeight;
             analysis.surface.waterHeight = (analysis.landHeight + 4) * 8;
+        }
+
+        for (let i = 0; i < 4; i++) {
+            if (wallsToBuild[i]) {
+                this.InsertNewWallElement(tile, analysis.surfaceIndex + 1, {
+                    baseHeight: analysis.landHeight,
+                    index: objectsInfo.wallObject.index,
+                    orientation: i
+                });
+            }
         }
 
         // // Construct

@@ -27,6 +27,18 @@ var ObjectHelper = function () {
             this.paths = context.getAllObjects("footpath");
             return this.GetAllPaths();
         }
+    }, {
+        key: "GetWall",
+        value: function GetWall(objId) {
+            if (this.walls) {
+                var filtered = this.walls.filter(function (w) {
+                    if (w.legacyIdentifier == null) return false;else return w.legacyIdentifier == objId;
+                });
+                if (filtered.length > 0) return filtered[0];else return null;
+            }
+            this.walls = context.getAllObjects("wall");
+            return this.GetWall(objId);
+        }
     }]);
 
     return ObjectHelper;
@@ -117,6 +129,36 @@ var TileHelper = function () {
     }, {
         key: "ConnectFootpathsBeyondEdge",
         value: function ConnectFootpathsBeyondEdge(regionInfo, footpathElement) {}
+    }, {
+        key: "InsertNewWallElement",
+        value: function InsertNewWallElement(tile, index, desc) {
+            var wallElement = tile.insertElement(index);
+
+            try {
+                wallElement.type = "wall";
+                // wallElement.clearanceHeight = desc.baseHeight + 4;
+                // footpathElement.slopeDirection = null;
+                // footpathElement.isBlockedByVehicle = false;
+                // footpathElement.isWide = false;
+                // footpathElement.isQueue = false;
+                // footpathElement.queueBannerDirection = null;
+                // footpathElement.addition = null;
+
+                // Specified properties
+                wallElement.baseHeight = desc.baseHeight;
+                wallElement.object = desc.index;
+
+                var data = tile.data;
+                var baseIndex = 16 * index;
+                var directionMask = 3;
+                ui.showError("data:", "" + data[baseIndex + 3]);
+                data[baseIndex] &= ~directionMask;
+                data[baseIndex] |= desc.orientation & directionMask;
+                tile.data = data;
+            } catch (ex) {
+                ui.showError("exception:", "" + ex);
+            }
+        }
     }, {
         key: "InsertNewFootpathElement",
         value: function InsertNewFootpathElement(tile, index, desc) {
@@ -270,6 +312,7 @@ var TileHelper = function () {
         key: "PreConstructPool",
         value: function PreConstructPool(tile, analysis, regionInfo, objectsInfo) {
             var cost = 0;
+            var wallsToBuild = [false, false, false, false];
 
             var minClearance = analysis.landHeight - 4;
             var maxClearance = analysis.landHeight + 4;
@@ -279,6 +322,26 @@ var TileHelper = function () {
             } else {
                 cost += 900;
             }
+            if (objectsInfo.wallObject) {
+                if (regionInfo.x == regionInfo.left) {
+                    wallsToBuild[0] = true;
+                    cost += 200;
+                }
+                if (regionInfo.x == regionInfo.right) {
+                    wallsToBuild[2] = true;
+                    cost += 200;
+                }
+                if (regionInfo.y == regionInfo.bottom) {
+                    wallsToBuild[3] = true;
+                    cost += 200;
+                }
+                if (regionInfo.y == regionInfo.top) {
+                    wallsToBuild[1] = true;
+                    cost += 200;
+                }
+            }
+
+            // ui.showError("Wall", `${objectsInfo.wallObject}`);
 
             // Preclear
             var result = this.PreClearArea(analysis, minClearance, maxClearance);
@@ -290,6 +353,7 @@ var TileHelper = function () {
                 result.minClearance = minClearance;
                 result.maxClearance = maxClearance;
                 result.cost += cost;
+                result.wallsToBuild = wallsToBuild;
                 return result;
             }
         }
@@ -302,6 +366,7 @@ var TileHelper = function () {
             var objectsInfo = preconstruction.objectsInfo;
             var cost = preconstruction.cost;
             var indicesToRemove = preconstruction.indicesToRemove;
+            var wallsToBuild = preconstruction.wallsToBuild;
 
             // Destruct
             if (indicesToRemove.length > 0) {
@@ -317,6 +382,16 @@ var TileHelper = function () {
                 analysis.landHeight -= 4;
                 analysis.surface.baseHeight = analysis.landHeight;
                 analysis.surface.waterHeight = (analysis.landHeight + 4) * 8;
+            }
+
+            for (var _i7 = 0; _i7 < 4; _i7++) {
+                if (wallsToBuild[_i7]) {
+                    this.InsertNewWallElement(tile, analysis.surfaceIndex + 1, {
+                        baseHeight: analysis.landHeight,
+                        index: objectsInfo.wallObject.index,
+                        orientation: _i7
+                    });
+                }
             }
 
             // // Construct
@@ -419,7 +494,9 @@ function finishSelection() {
                 var tile = map.getTile(x, y);
                 var analysis = selection.tiles[x - left][y - bottom];
 
-                var preconstruction = TileHelper.PreConstructPool(tile, analysis, regionInfo, { footpathObject: footpathObject });
+                var preconstruction = TileHelper.PreConstructPool(tile, analysis, regionInfo, {
+                    footpathObject: footpathObject,
+                    wallObject: objectHelper.GetWall("AK-PLWL ") });
                 if (!preconstruction.success) return;
                 totalCost += preconstruction.cost;
                 preconstructions.push(preconstruction);

@@ -122,7 +122,9 @@ function finishSelection() {
             let analysis = selection.tiles[x - left][y - bottom];
 
             var preconstruction = TileHelper.PreConstructPool(tile, analysis, regionInfo,
-                { footpathObject: footpathObject });
+                { 
+                    footpathObject: footpathObject,
+                    wallObject: objectHelper.GetWall("AK-PLWL ")});
             if (!preconstruction.success)
                 return;
             totalCost += preconstruction.cost;
