@@ -38,11 +38,11 @@ var TileHelper = function () {
     }
 
     _createClass(TileHelper, null, [{
-        key: "CalculatePathEdges",
+        key: "ManuallyCalculatePathEdges",
 
         // 'pAB' = X above, Y below
         // 'pB0' = X below, Y same, etc.
-        value: function CalculatePathEdges(pB0, pA0, p0B, p0A, pBA, pAA, pAB, pBB) {
+        value: function ManuallyCalculatePathEdges(pB0, pA0, p0B, p0A, pBA, pAA, pAB, pBB) {
             var result = 0;
             if (pB0) result += 1;
             if (pA0) result += 4;
@@ -53,6 +53,15 @@ var TileHelper = function () {
             if (pAB && pA0 && p0B) result += 64;
             if (pBB && pB0 && p0B) result += 128;
             return result;
+        }
+    }, {
+        key: "CalculatePathEdges",
+        value: function CalculatePathEdges(regionInfo) {
+            var xAbove = regionInfo.x < regionInfo.right;
+            var xBelow = regionInfo.x > regionInfo.left;
+            var yAbove = regionInfo.y < regionInfo.top;
+            var yBelow = regionInfo.y > regionInfo.bottom;
+            return this.ManuallyCalculatePathEdges(xBelow, xAbove, yBelow, yAbove, xBelow && yAbove, xAbove && yAbove, xAbove && yBelow, xBelow && yBelow);
         }
     }, {
         key: "AnalyzeTile",
@@ -106,17 +115,40 @@ var TileHelper = function () {
             return result;
         }
     }, {
-        key: "ConstructDeck",
-        value: function ConstructDeck(tile, analysis) {
-            var cost = 0;
+        key: "ConnectFootpathsBeyondEdge",
+        value: function ConnectFootpathsBeyondEdge(regionInfo, footpathElement) {}
+    }, {
+        key: "InsertNewFootpathElement",
+        value: function InsertNewFootpathElement(tile, index, desc) {
+            var footpathElement = tile.insertElement(index);
 
-            var indicesToRemove = [];
-            var minClearance = analysis.landHeight;
-            var maxClearance = analysis.landHeight + 4;
-            if (analysis.waterHeight > 0) {
-                maxClearance += 4;
-                cost += 400;
+            try {
+                footpathElement.type = "footpath";
+                footpathElement.clearanceHeight = desc.baseHeight + 4;
+                // footpathElement.slopeDirection = null;
+                // footpathElement.isBlockedByVehicle = false;
+                // footpathElement.isWide = false;
+                // footpathElement.isQueue = false;
+                // footpathElement.queueBannerDirection = null;
+                // footpathElement.addition = null;
+
+                // Specified properties
+                footpathElement.baseHeight = desc.baseHeight;
+                footpathElement.edgesAndCorners = desc.edgesAndCorners;
+
+                var data = tile.data;
+                var baseIndex = 16 * index;
+                data[baseIndex + 4] = desc.footpathType;
+                tile.data = data;
+            } catch (ex) {
+                ui.showError("exception:", "" + ex);
             }
+        }
+    }, {
+        key: "PreClearArea",
+        value: function PreClearArea(analysis, minClearance, maxClearance) {
+            var cost = 0;
+            var indicesToRemove = [];
 
             var element = void 0;
             var object = void 0;
@@ -131,7 +163,7 @@ var TileHelper = function () {
                 element = analysis.tracks[_i];
                 if (element.baseHeight >= minClearance && element.baseHeight <= maxClearance) {
                     ui.showError("Can't build pool here:", "Track in the way");
-                    return analysis;
+                    return { success: false, cost: null, indicesToRemove: null };
                 }
             }
             for (var _i2 = 0; _i2 < analysis.smallSceneries.length; _i2++) {
@@ -152,37 +184,138 @@ var TileHelper = function () {
                 element = analysis.entrances[_i4];
                 if (element.baseHeight >= minClearance && element.baseHeight <= maxClearance) {
                     ui.showError("Can't build pool here:", "Entrance or exit in the way");
-                    return analysis;
+                    return { success: false, cost: null, indicesToRemove: null };
                 }
             }
             for (var _i5 = 0; _i5 < analysis.largeSceneries.length; _i5++) {
                 element = analysis.largeSceneries[_i5];
                 if (element.baseHeight >= minClearance && element.baseHeight <= maxClearance) {
                     ui.showError("Can't build pool here:", "Large scenery in the way");
-                    return analysis;
+                    return { success: false, cost: null, indicesToRemove: null };
                 }
             }
             for (var _i6 = 0; _i6 < analysis.banners.length; _i6++) {
                 element = analysis.banners[_i6];
                 if (element.baseHeight >= minClearance && element.baseHeight <= maxClearance) {
                     ui.showError("Can't build pool here:", "Banner in the way");
-                    return analysis;
+                    return { success: false, cost: null, indicesToRemove: null };
                 }
             }
 
-            if (cost > 0 && cost > park.cash) {
-                ui.showError("Can't build pool here:", "Not enough cash - required $" + cost);
-                return analysis;
+            return { success: true, cost: cost, indicesToRemove: indicesToRemove };
+        }
+    }, {
+        key: "PreConstructDeck",
+        value: function PreConstructDeck(tile, analysis, regionInfo, objectsInfo) {
+            var cost = 0;
+
+            var minClearance = analysis.landHeight;
+            var maxClearance = analysis.landHeight + 4;
+            if (analysis.waterHeight > 0) {
+                maxClearance += 4;
+                cost += 400;
             }
+            if (objectsInfo.footpathObject != null) cost += 120;
+
+            // Preclear
+            var result = this.PreClearArea(analysis, minClearance, maxClearance);
+            if (!result.success) return { success: false };else {
+                result.tile = tile;
+                result.analysis = analysis;
+                result.regionInfo = regionInfo;
+                result.objectsInfo = objectsInfo;
+                result.minClearance = minClearance;
+                result.maxClearance = maxClearance;
+                result.cost += cost;
+                return result;
+            }
+        }
+    }, {
+        key: "ConstructDeck",
+        value: function ConstructDeck(preconstruction) {
+            var tile = preconstruction.tile;
+            var analysis = preconstruction.analysis;
+            var regionInfo = preconstruction.regionInfo;
+            var objectsInfo = preconstruction.objectsInfo;
+            var cost = preconstruction.cost;
+            var indicesToRemove = preconstruction.indicesToRemove;
+
             if (indicesToRemove.length > 0) {
                 indicesToRemove.sort();
-                for (var _i7 = indicesToRemove.length - 1; _i7 >= 0; _i7--) {
-                    tile.removeElement(indicesToRemove[_i7]);
+                for (var i = indicesToRemove.length - 1; i >= 0; i--) {
+                    tile.removeElement(indicesToRemove[i]);
                 }
                 analysis = this.AnalyzeTile(tile);
             }
 
-            if (analysis.waterHeight > 0) analysis.surface.baseHeight = analysis.waterHeight;
+            // Move land
+            if (analysis.waterHeight > 0) {
+                analysis.landHeight = analysis.waterHeight;
+                analysis.surface.baseHeight = analysis.waterHeight;
+                analysis.surface.waterHeight = 0;
+            }
+
+            // Construct
+            if (objectsInfo.footpathObject != null) {
+                this.InsertNewFootpathElement(tile, analysis.surfaceIndex + 1, {
+                    baseHeight: analysis.landHeight,
+                    footpathType: objectsInfo.footpathObject.index,
+                    edgesAndCorners: this.CalculatePathEdges(regionInfo)
+                });
+            }
+
+            park.cash -= cost;
+        }
+
+        // Doesn't work right now
+
+    }, {
+        key: "ConstructPool",
+        value: function ConstructPool(tile, analysis, regionInfo, objectsInfo) {
+            var cost = 0;
+
+            var minClearance = analysis.landHeight - 4;
+            var maxClearance = analysis.landHeight + 4;
+            if (analysis.waterHeight > 0) {
+                minClearance += 4;
+                maxClearance += 4;
+            } else {
+                cost += 900;
+            }
+
+            // Destruct
+            var removal = this.PreClearArea(analysis, minClearance, maxClearance);
+            if (!removal.success) return analysis;
+            cost += removal.cost;
+            if (removal.indicesToRemove.length > 0) {
+                removal.indicesToRemove.sort();
+                for (var i = removal.indicesToRemove.length - 1; i >= 0; i--) {
+                    tile.removeElement(removal.indicesToRemove[i]);
+                }
+                analysis = this.AnalyzeTile(tile);
+            }
+
+            // Check cost
+            if (cost > 0 && cost > park.cash) {
+                ui.showError("Can't build pool here:", "Not enough cash - requires $" + cost);
+                return analysis;
+            }
+
+            // Move land
+            if (analysis.waterHeight == 0) {
+                analysis.landHeight -= 4;
+                analysis.surface.baseHeight = analysis.landHeight;
+                analysis.surface.waterHeight = (analysis.landHeight + 4) * 8;
+            }
+
+            // // Construct
+            // if (objectsInfo.footpathObject != null) {
+            //     this.InsertNewFootpathElement(tile, analysis.surfaceIndex + 1, {
+            //         baseHeight: analysis.landHeight,
+            //         footpathType: objectsInfo.footpathObject.index,
+            //         edgesAndCorners: this.CalculatePathEdges(regionInfo)
+            //     });
+            // }
 
             park.cash -= cost;
             return analysis;
@@ -228,7 +361,7 @@ function analyzeSelection(left, right, top, bottom) {
 
             if (!analysis.hasSurface) selection.errors.push("There is no surface here.");else {
                 var poolHeight = analysis.landHeight;
-                if (analysis.waterHeight == poolHeight + 4) poolHeight += 4;
+                if (analysis.waterHeight == poolHeight + 4) poolHeight += 4;else if (analysis.waterHeight != 0) selection.errors.push("Water is not the correct depth for a pool.");
                 if (analysis.slope != 0) selection.errors.push("Land must be flat.");
                 if (height == null) height = poolHeight;else if (poolHeight != height) selection.errors.push("Land (or pool) must be at the same height.");
             }
@@ -254,48 +387,68 @@ function finishSelection() {
         viewRotation -= 2;
     }
 
-    var pathObject = objectHelper.GetAllPaths()[pathType];
+    var footpathObject = null;
+    if (pathType >= 0) footpathObject = objectHelper.GetAllPaths()[pathType];
     var selection = analyzeSelection(left, right, top, bottom);
     if (selection.errors.length > 0) {
         ui.showError("Can't build pool here:", selection.errors[0]);
         return;
     }
-    for (var x = left; x <= right; x++) {
-        for (var y = bottom; y <= top; y++) {
-            var xAbove = x < right;
-            var xBelow = x > left;
-            var yAbove = y < top;
-            var yBelow = y > bottom;
-            var edges = TileHelper.CalculatePathEdges(xBelow, xAbove, yBelow, yAbove, xBelow && yAbove, xAbove && yAbove, xAbove && yBelow, xBelow && yBelow);
 
-            var tile = map.getTile(x, y);
-            var analysis = selection.tiles[x - left][y - bottom];
+    var preconstructions = [];
+    var totalCost = 0;
+    try {
+        for (var x = left; x <= right; x++) {
+            for (var y = bottom; y <= top; y++) {
+                var regionInfo = {
+                    left: left, right: right,
+                    top: top, bottom: bottom,
+                    x: x, y: y };
 
-            analysis = TileHelper.ConstructDeck(tile, analysis);
-            // let pathElement = tile.insertElement(surfaceIndex + 1);
-            // pathElement.type = "footpath";
-            // pathElement.baseHeight = baseHeight;
-            // pathElement.clearanceHeight = 4;
-            // let pathElement = MapHelper.PlaceFootpath(tile, pathObject.index, selection.poolHeight);
-            // pathElement.edgesAndCorners = edges;
-            // MapHelper.SetFootpathType(tile, surfaceIndex + 1, pathObject.index);
+                var tile = map.getTile(x, y);
+                var analysis = selection.tiles[x - left][y - bottom];
 
-            // let tile = map.getTile(x, y);
-            // let surfaceHeight = MapHelper.GetTileSurfaceZ(x, y);
+                var preconstruction = TileHelper.PreConstructDeck(tile, analysis, regionInfo, { footpathObject: footpathObject });
+                if (!preconstruction.success) return;
+                totalCost += preconstruction.cost;
+                preconstructions.push(preconstruction);
+                // let pathElement = tile.insertElement(surfaceIndex + 1);
+                // pathElement.type = "footpath";
+                // pathElement.baseHeight = baseHeight;
+                // pathElement.clearanceHeight = 4;
+                // let pathElement = MapHelper.PlaceFootpath(tile, pathObject.index, selection.poolHeight);
+                // pathElement.edgesAndCorners = edges;
+                // MapHelper.SetFootpathType(tile, surfaceIndex + 1, pathObject.index);
+
+                // let tile = map.getTile(x, y);
+                // let surfaceHeight = MapHelper.GetTileSurfaceZ(x, y);
 
 
-            // if ((viewRotation === 0 && x !== left) || (viewRotation === 1 && y !== bottom)) {
-            //     let elementN = MapHelper.PlaceWall(tile, roadLineWall, surfaceHeight - lineStyleHeights[lineStyle]);
-            //     MapHelper.SetTileElementRotation(tile, elementN._index, 0 + viewRotation);
-            //     MapHelper.SetPrimaryTileColor(tile, elementN._index, colors[lineColor]);
-            // }
+                // if ((viewRotation === 0 && x !== left) || (viewRotation === 1 && y !== bottom)) {
+                //     let elementN = MapHelper.PlaceWall(tile, roadLineWall, surfaceHeight - lineStyleHeights[lineStyle]);
+                //     MapHelper.SetTileElementRotation(tile, elementN._index, 0 + viewRotation);
+                //     MapHelper.SetPrimaryTileColor(tile, elementN._index, colors[lineColor]);
+                // }
 
-            // if ((viewRotation === 0 && x !== right) || (viewRotation === 1 && y !== top)) {
-            //     let elementS = MapHelper.PlaceWall(tile, roadLineWall, surfaceHeight - lineStyleHeights[lineStyle]);
-            //     MapHelper.SetTileElementRotation(tile, elementS._index, 2 + viewRotation);
-            //     MapHelper.SetPrimaryTileColor(tile, elementS._index, colors[lineColor]);
-            // }
+                // if ((viewRotation === 0 && x !== right) || (viewRotation === 1 && y !== top)) {
+                //     let elementS = MapHelper.PlaceWall(tile, roadLineWall, surfaceHeight - lineStyleHeights[lineStyle]);
+                //     MapHelper.SetTileElementRotation(tile, elementS._index, 2 + viewRotation);
+                //     MapHelper.SetPrimaryTileColor(tile, elementS._index, colors[lineColor]);
+                // }
+            }
         }
+
+        // Check cost
+        if (totalCost > 0 && totalCost > park.cash) {
+            ui.showError("Can't build pool here:", "Not enough cash - requires $" + totalCost / 10);
+            return;
+        }
+
+        while (preconstructions.length > 0) {
+            TileHelper.ConstructDeck(preconstructions.pop());
+        }
+    } catch (ex) {
+        // ui.showError("Exception:", `${ex}`);
     }
 }
 

@@ -1,7 +1,7 @@
 class TileHelper {
     // 'pAB' = X above, Y below
     // 'pB0' = X below, Y same, etc.
-    static CalculatePathEdges(
+    static ManuallyCalculatePathEdges(
         pB0, pA0, p0B, p0A,
         pBA, pAA, pAB, pBB) {
         let result = 0;
@@ -22,6 +22,17 @@ class TileHelper {
         if (pBB && pB0 && p0B)
             result += 128;
         return result;
+    }
+
+    static CalculatePathEdges(regionInfo) {
+        let xAbove = regionInfo.x < regionInfo.right;
+        let xBelow = regionInfo.x > regionInfo.left;
+        let yAbove = regionInfo.y < regionInfo.top;
+        let yBelow = regionInfo.y > regionInfo.bottom;
+        return this.ManuallyCalculatePathEdges(
+            xBelow, xAbove, yBelow, yAbove,
+            xBelow && yAbove, xAbove && yAbove,
+            xAbove && yBelow, xBelow && yBelow);
     }
 
     static AnalyzeTile(tile) {
@@ -74,17 +85,41 @@ class TileHelper {
         return result;
     }
 
-    static ConstructDeck(tile, analysis) {
-        let cost = 0;
+    static ConnectFootpathsBeyondEdge(regionInfo, footpathElement) {
 
-        let indicesToRemove = [];
-        let minClearance = analysis.landHeight;
-        let maxClearance = analysis.landHeight + 4;
-        if (analysis.waterHeight > 0) {
-            maxClearance += 4;
-            cost += 400;
+    }
+
+    static InsertNewFootpathElement(tile, index, desc) {
+        let footpathElement = tile.insertElement(index);
+
+        try {
+            footpathElement.type = "footpath";
+            footpathElement.clearanceHeight = desc.baseHeight + 4;
+            // footpathElement.slopeDirection = null;
+            // footpathElement.isBlockedByVehicle = false;
+            // footpathElement.isWide = false;
+            // footpathElement.isQueue = false;
+            // footpathElement.queueBannerDirection = null;
+            // footpathElement.addition = null;
+
+            // Specified properties
+            footpathElement.baseHeight = desc.baseHeight;
+            footpathElement.edgesAndCorners = desc.edgesAndCorners;
+            
+            let data = tile.data;
+            let baseIndex = 16 * index;
+            data[baseIndex + 4] = desc.footpathType;
+            tile.data = data;
         }
-        
+        catch (ex) {
+            ui.showError("exception:", `${ex}`);
+        }
+    }
+
+    static PreClearArea(analysis, minClearance, maxClearance) {
+        let cost = 0;
+        let indicesToRemove = [];
+
         let element;
         let object;
         for (let i = 0; i < analysis.footpaths.length; i++) {
@@ -100,7 +135,7 @@ class TileHelper {
             if (element.baseHeight >= minClearance &&
                 element.baseHeight <= maxClearance) {
                     ui.showError("Can't build pool here:", "Track in the way");
-                return analysis;
+                return { success: false, cost: null, indicesToRemove: null };
             }
         }
         for (let i = 0; i < analysis.smallSceneries.length; i++) {
@@ -124,7 +159,7 @@ class TileHelper {
             if (element.baseHeight >= minClearance &&
                 element.baseHeight <= maxClearance) {
                     ui.showError("Can't build pool here:", "Entrance or exit in the way");
-                return analysis;
+                return { success: false, cost: null, indicesToRemove: null };
             }
         }
         for (let i = 0; i < analysis.largeSceneries.length; i++) {
@@ -132,7 +167,7 @@ class TileHelper {
             if (element.baseHeight >= minClearance &&
                 element.baseHeight <= maxClearance) {
                     ui.showError("Can't build pool here:", "Large scenery in the way");
-                return analysis;
+                return { success: false, cost: null, indicesToRemove: null };
             }
         }
         for (let i = 0; i < analysis.banners.length; i++) {
@@ -140,14 +175,50 @@ class TileHelper {
             if (element.baseHeight >= minClearance &&
                 element.baseHeight <= maxClearance) {
                     ui.showError("Can't build pool here:", "Banner in the way");
-                return analysis;
+                return { success: false, cost: null, indicesToRemove: null };
             }
         }
 
-        if (cost > 0 && cost > park.cash) {
-            ui.showError("Can't build pool here:", `Not enough cash - required $${cost}`);
-            return analysis;
+        return { success: true, cost: cost, indicesToRemove: indicesToRemove };
+    }
+
+    static PreConstructDeck(tile, analysis, regionInfo, objectsInfo) {
+        let cost = 0;
+
+        let minClearance = analysis.landHeight;
+        let maxClearance = analysis.landHeight + 4;
+        if (analysis.waterHeight > 0) {
+            maxClearance += 4;
+            cost += 400;
         }
+        if (objectsInfo.footpathObject != null)
+            cost += 120;
+        
+
+        // Preclear
+        let result = this.PreClearArea(analysis, minClearance, maxClearance);
+        if (!result.success)
+            return { success: false };
+        else {
+            result.tile = tile;
+            result.analysis = analysis;
+            result.regionInfo = regionInfo;
+            result.objectsInfo = objectsInfo;
+            result.minClearance = minClearance;
+            result.maxClearance = maxClearance;
+            result.cost += cost;
+            return result;
+        }
+    }
+
+    static ConstructDeck(preconstruction) {
+        let tile = preconstruction.tile;
+        let analysis = preconstruction.analysis;
+        let regionInfo = preconstruction.regionInfo;
+        let objectsInfo = preconstruction.objectsInfo;
+        let cost = preconstruction.cost;
+        let indicesToRemove = preconstruction.indicesToRemove;
+
         if (indicesToRemove.length > 0)
         {
             indicesToRemove.sort();
@@ -157,8 +228,73 @@ class TileHelper {
             analysis = this.AnalyzeTile(tile);
         }
 
-        if (analysis.waterHeight > 0)
+        // Move land
+        if (analysis.waterHeight > 0) {
+            analysis.landHeight = analysis.waterHeight;
             analysis.surface.baseHeight = analysis.waterHeight;
+            analysis.surface.waterHeight = 0;
+        }
+
+        // Construct
+        if (objectsInfo.footpathObject != null) {
+            this.InsertNewFootpathElement(tile, analysis.surfaceIndex + 1, {
+                baseHeight: analysis.landHeight,
+                footpathType: objectsInfo.footpathObject.index,
+                edgesAndCorners: this.CalculatePathEdges(regionInfo)
+            });
+        }
+
+        park.cash -= cost;
+    }
+
+    // Doesn't work right now
+    static ConstructPool(tile, analysis, regionInfo, objectsInfo) {
+        let cost = 0;
+
+        let minClearance = analysis.landHeight - 4;
+        let maxClearance = analysis.landHeight + 4;
+        if (analysis.waterHeight > 0) {
+            minClearance += 4;
+            maxClearance += 4;
+        } else {
+            cost += 900;
+        }
+        
+        // Destruct
+        let removal = this.PreClearArea(analysis, minClearance, maxClearance);
+        if (!removal.success)
+            return analysis;
+        cost += removal.cost;
+        if (removal.indicesToRemove.length > 0)
+        {
+            removal.indicesToRemove.sort();
+            for (let i = removal.indicesToRemove.length - 1; i >= 0; i--) {
+                tile.removeElement(removal.indicesToRemove[i]);
+            }
+            analysis = this.AnalyzeTile(tile);
+        }
+
+        // Check cost
+        if (cost > 0 && cost > park.cash) {
+            ui.showError("Can't build pool here:", `Not enough cash - requires $${cost}`);
+            return analysis;
+        }
+
+        // Move land
+        if (analysis.waterHeight == 0) {
+            analysis.landHeight -= 4;
+            analysis.surface.baseHeight = analysis.landHeight;
+            analysis.surface.waterHeight = (analysis.landHeight + 4) * 8;
+        }
+
+        // // Construct
+        // if (objectsInfo.footpathObject != null) {
+        //     this.InsertNewFootpathElement(tile, analysis.surfaceIndex + 1, {
+        //         baseHeight: analysis.landHeight,
+        //         footpathType: objectsInfo.footpathObject.index,
+        //         edgesAndCorners: this.CalculatePathEdges(regionInfo)
+        //     });
+        // }
 
         park.cash -= cost;
         return analysis;

@@ -68,6 +68,8 @@ function analyzeSelection(left, right, top, bottom)
                 let poolHeight = analysis.landHeight;
                 if (analysis.waterHeight == poolHeight + 4)
                     poolHeight += 4;
+                else if (analysis.waterHeight != 0)
+                    selection.errors.push("Water is not the correct depth for a pool.");
                 if (analysis.slope != 0)
                     selection.errors.push("Land must be flat.");
                 if (height == null)
@@ -97,27 +99,34 @@ function finishSelection() {
         viewRotation -= 2;
     }
 
-    let pathObject = objectHelper.GetAllPaths()[pathType];
+    let footpathObject = null;
+    if (pathType >= 0)
+        footpathObject = objectHelper.GetAllPaths()[pathType];
     var selection = analyzeSelection(left, right, top, bottom);
     if (selection.errors.length > 0) {
         ui.showError("Can't build pool here:", selection.errors[0]);
         return;
     }
+
+    let preconstructions = [];
+    let totalCost = 0;
+    try {
     for (let x = left; x <= right; x++) {
         for (let y = bottom; y <= top; y++) {
-            let xAbove = x < right;
-            let xBelow = x > left;
-            let yAbove = y < top;
-            let yBelow = y > bottom;
-            let edges = TileHelper.CalculatePathEdges(
-                xBelow, xAbove, yBelow, yAbove,
-                xBelow && yAbove, xAbove && yAbove,
-                xAbove && yBelow, xBelow && yBelow);
+            let regionInfo = {
+                left: left, right: right,
+                top: top, bottom: bottom,
+                x: x, y: y };
 
             let tile = map.getTile(x, y);
             let analysis = selection.tiles[x - left][y - bottom];
 
-            analysis = TileHelper.ConstructDeck(tile, analysis);
+            var preconstruction = TileHelper.PreConstructDeck(tile, analysis, regionInfo,
+                { footpathObject: footpathObject });
+            if (!preconstruction.success)
+                return;
+            totalCost += preconstruction.cost;
+            preconstructions.push(preconstruction);
             // let pathElement = tile.insertElement(surfaceIndex + 1);
             // pathElement.type = "footpath";
             // pathElement.baseHeight = baseHeight;
@@ -142,6 +151,19 @@ function finishSelection() {
             //     MapHelper.SetPrimaryTileColor(tile, elementS._index, colors[lineColor]);
             // }
         }
+    }
+
+    // Check cost
+    if (totalCost > 0 && totalCost > park.cash) {
+        ui.showError("Can't build pool here:", `Not enough cash - requires $${ totalCost / 10 }`);
+        return;
+    }
+
+    while (preconstructions.length > 0) {
+        TileHelper.ConstructDeck(preconstructions.pop());
+    }
+    } catch (ex) {
+        // ui.showError("Exception:", `${ex}`);
     }
 }
 
