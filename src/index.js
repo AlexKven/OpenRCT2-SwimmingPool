@@ -57,29 +57,38 @@ function analyzeSelection(left, right, top, bottom)
 {
     let selection = { errors: [], tiles: [] };
     var height = null;
-    for (let x = left; x <= right; x++) {
-        let column = [];
-        for (let y = bottom; y <= top; y++) {
-            let analysis = TileHelper.AnalyzeTile(map.getTile(x, y));
-            
-            if (!analysis.hasSurface)
-                selection.errors.push("There is no surface here.");
-            else {
-                let poolHeight = analysis.landHeight;
-                if (analysis.waterHeight == poolHeight + 4)
-                    poolHeight += 4;
-                else if (analysis.waterHeight != 0)
-                    selection.errors.push("Water is not the correct depth for a pool.");
-                if (analysis.slope != 0)
-                    selection.errors.push("Land must be flat.");
-                if (height == null)
-                    height = poolHeight;
-                else if (poolHeight != height)
-                selection.errors.push("Land (or pool) must be at the same height.");
+    let mapSize = map.size;
+    for (let x = left - 1; x <= right + 1; x++) {
+        if (x < 0 || x >= mapSize.x)
+            selection.push(null);
+        else {
+            let column = [];
+            for (let y = bottom - 1; y <= top + 1; y++) {
+                if (y < 0 || y >= mapSize.y)
+                    column.push(null);
+                else {
+                    let analysis = TileHelper.AnalyzeTile(map.getTile(x, y));
+                    
+                    if (!analysis.hasSurface)
+                        selection.errors.push("There is no surface here.");
+                    else {
+                        let poolHeight = analysis.landHeight;
+                        if (analysis.waterHeight == poolHeight + 4)
+                            poolHeight += 4;
+                        else if (analysis.waterHeight != 0)
+                            selection.errors.push("Water is not the correct depth for a pool.");
+                        if (analysis.slope != 0)
+                            selection.errors.push("Land must be flat.");
+                        if (height == null)
+                            height = poolHeight;
+                        else if (poolHeight != height)
+                        selection.errors.push("Land (or pool) must be at the same height.");
+                    }
+                    column.push(analysis);
+                }
             }
-            column.push(analysis);
+            selection.tiles.push(column);
         }
-        selection.tiles.push(column);
     }
     selection.poolHeight = height;
     return selection;
@@ -118,13 +127,10 @@ function finishSelection() {
                 top: top, bottom: bottom,
                 x: x, y: y };
 
-            let tile = map.getTile(x, y);
-            let analysis = selection.tiles[x - left][y - bottom];
-
-            var preconstruction = TileHelper.PreConstructPool(tile, analysis, regionInfo,
+            var preconstruction = TileHelper.PreConstructPool(selection, regionInfo,
                 { 
                     footpathObject: footpathObject,
-                    wallObject: objectHelper.GetWall("AK-PLWL ")});
+                    wallObject: objectHelper.GetWall("XK-SWM00")});
             if (!preconstruction.success)
                 return;
             totalCost += preconstruction.cost;

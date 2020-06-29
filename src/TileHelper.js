@@ -36,7 +36,8 @@ class TileHelper {
     }
 
     static AnalyzeTile(tile) {
-        let result = { 
+        let result = {
+            tile: tile,
             hasSurface: false,
             footpaths: [],
             tracks: [],
@@ -212,7 +213,12 @@ class TileHelper {
         return { success: true, cost: cost, indicesToRemove: indicesToRemove };
     }
 
-    static PreConstructDeck(tile, analysis, regionInfo, objectsInfo) {
+    static PreConstructDeck(selection, regionInfo, objectsInfo) {
+        let indexX = regionInfo.x - regionInfo.left + 1;
+        let indexY = regionInfo.y - regionInfo.bottom + 1;
+        let analysis = selection.tiles[indexX][indexY];
+        let tile = analysis.tile;
+
         let cost = 0;
 
         let minClearance = analysis.landHeight;
@@ -277,7 +283,12 @@ class TileHelper {
         park.cash -= cost;
     }
 
-    static PreConstructPool(tile, analysis, regionInfo, objectsInfo) {
+    static PreConstructPool(selection, regionInfo, objectsInfo) {
+        let indexX = regionInfo.x - regionInfo.left + 1;
+        let indexY = regionInfo.y - regionInfo.bottom + 1;
+        let analysis = selection.tiles[indexX][indexY];
+        let tile = analysis.tile;
+
         let cost = 0;
         let wallsToBuild = [false, false, false, false];
 

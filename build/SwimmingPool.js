@@ -79,6 +79,7 @@ var TileHelper = function () {
         key: "AnalyzeTile",
         value: function AnalyzeTile(tile) {
             var result = {
+                tile: tile,
                 hasSurface: false,
                 footpaths: [],
                 tracks: [],
@@ -248,7 +249,12 @@ var TileHelper = function () {
         }
     }, {
         key: "PreConstructDeck",
-        value: function PreConstructDeck(tile, analysis, regionInfo, objectsInfo) {
+        value: function PreConstructDeck(selection, regionInfo, objectsInfo) {
+            var indexX = regionInfo.x - regionInfo.left + 1;
+            var indexY = regionInfo.y - regionInfo.bottom + 1;
+            var analysis = selection.tiles[indexX][indexY];
+            var tile = analysis.tile;
+
             var cost = 0;
 
             var minClearance = analysis.landHeight;
@@ -310,7 +316,12 @@ var TileHelper = function () {
         }
     }, {
         key: "PreConstructPool",
-        value: function PreConstructPool(tile, analysis, regionInfo, objectsInfo) {
+        value: function PreConstructPool(selection, regionInfo, objectsInfo) {
+            var indexX = regionInfo.x - regionInfo.left + 1;
+            var indexY = regionInfo.y - regionInfo.bottom + 1;
+            var analysis = selection.tiles[indexX][indexY];
+            var tile = analysis.tile;
+
             var cost = 0;
             var wallsToBuild = [false, false, false, false];
 
@@ -440,20 +451,25 @@ function selectTheMap() {
 function analyzeSelection(left, right, top, bottom) {
     var selection = { errors: [], tiles: [] };
     var height = null;
-    for (var x = left; x <= right; x++) {
-        var column = [];
-        for (var y = bottom; y <= top; y++) {
-            var analysis = TileHelper.AnalyzeTile(map.getTile(x, y));
+    var mapSize = map.size;
+    for (var x = left - 1; x <= right + 1; x++) {
+        if (x < 0 || x >= mapSize.x) selection.push(null);else {
+            var column = [];
+            for (var y = bottom - 1; y <= top + 1; y++) {
+                if (y < 0 || y >= mapSize.y) column.push(null);else {
+                    var analysis = TileHelper.AnalyzeTile(map.getTile(x, y));
 
-            if (!analysis.hasSurface) selection.errors.push("There is no surface here.");else {
-                var poolHeight = analysis.landHeight;
-                if (analysis.waterHeight == poolHeight + 4) poolHeight += 4;else if (analysis.waterHeight != 0) selection.errors.push("Water is not the correct depth for a pool.");
-                if (analysis.slope != 0) selection.errors.push("Land must be flat.");
-                if (height == null) height = poolHeight;else if (poolHeight != height) selection.errors.push("Land (or pool) must be at the same height.");
+                    if (!analysis.hasSurface) selection.errors.push("There is no surface here.");else {
+                        var poolHeight = analysis.landHeight;
+                        if (analysis.waterHeight == poolHeight + 4) poolHeight += 4;else if (analysis.waterHeight != 0) selection.errors.push("Water is not the correct depth for a pool.");
+                        if (analysis.slope != 0) selection.errors.push("Land must be flat.");
+                        if (height == null) height = poolHeight;else if (poolHeight != height) selection.errors.push("Land (or pool) must be at the same height.");
+                    }
+                    column.push(analysis);
+                }
             }
-            column.push(analysis);
+            selection.tiles.push(column);
         }
-        selection.tiles.push(column);
     }
     selection.poolHeight = height;
     return selection;
@@ -491,12 +507,9 @@ function finishSelection() {
                     top: top, bottom: bottom,
                     x: x, y: y };
 
-                var tile = map.getTile(x, y);
-                var analysis = selection.tiles[x - left][y - bottom];
-
-                var preconstruction = TileHelper.PreConstructPool(tile, analysis, regionInfo, {
+                var preconstruction = TileHelper.PreConstructPool(selection, regionInfo, {
                     footpathObject: footpathObject,
-                    wallObject: objectHelper.GetWall("AK-PLWL ") });
+                    wallObject: objectHelper.GetWall("XK-SWM00") });
                 if (!preconstruction.success) return;
                 totalCost += preconstruction.cost;
                 preconstructions.push(preconstruction);
