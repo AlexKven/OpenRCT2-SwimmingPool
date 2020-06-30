@@ -76,6 +76,12 @@ var TileHelper = function () {
             return this.ManuallyCalculatePathEdges(xBelow, xAbove, yBelow, yAbove, xBelow && yAbove, xAbove && yAbove, xAbove && yBelow, xBelow && yBelow);
         }
     }, {
+        key: "EdgesContainsEdge",
+        value: function EdgesContainsEdge(edges, edge) {
+            var bit = Math.pow(2, edge);
+            return (edges & bit) == bit;
+        }
+    }, {
         key: "AnalyzeTile",
         value: function AnalyzeTile(tile) {
             var result = {
@@ -249,7 +255,9 @@ var TileHelper = function () {
         }
     }, {
         key: "PreConstructDeck",
-        value: function PreConstructDeck(selection, regionInfo, objectsInfo) {
+        value: function PreConstructDeck(selection, edges, regionInfo, objectsInfo) {
+            var _this = this;
+
             var indexX = regionInfo.x - regionInfo.left + 1;
             var indexY = regionInfo.y - regionInfo.bottom + 1;
             var analysis = selection.tiles[indexX][indexY];
@@ -270,11 +278,15 @@ var TileHelper = function () {
             if (!result.success) return { success: false };else {
                 result.tile = tile;
                 result.analysis = analysis;
+                result.edges = edges;
                 result.regionInfo = regionInfo;
                 result.objectsInfo = objectsInfo;
                 result.minClearance = minClearance;
                 result.maxClearance = maxClearance;
                 result.cost += cost;
+                result.build = function () {
+                    return _this.ConstructDeck(result);
+                };
                 return result;
             }
         }
@@ -283,6 +295,7 @@ var TileHelper = function () {
         value: function ConstructDeck(preconstruction) {
             var tile = preconstruction.tile;
             var analysis = preconstruction.analysis;
+            var edges = preconstruction.edges;
             var regionInfo = preconstruction.regionInfo;
             var objectsInfo = preconstruction.objectsInfo;
             var cost = preconstruction.cost;
@@ -308,7 +321,7 @@ var TileHelper = function () {
                 this.InsertNewFootpathElement(tile, analysis.surfaceIndex + 1, {
                     baseHeight: analysis.landHeight,
                     footpathType: objectsInfo.footpathObject.index,
-                    edgesAndCorners: this.CalculatePathEdges(regionInfo)
+                    edgesAndCorners: edges
                 });
             }
 
@@ -316,14 +329,15 @@ var TileHelper = function () {
         }
     }, {
         key: "PreConstructPool",
-        value: function PreConstructPool(selection, regionInfo, objectsInfo) {
+        value: function PreConstructPool(selection, edges, regionInfo, objectsInfo) {
+            var _this2 = this;
+
             var indexX = regionInfo.x - regionInfo.left + 1;
             var indexY = regionInfo.y - regionInfo.bottom + 1;
             var analysis = selection.tiles[indexX][indexY];
             var tile = analysis.tile;
 
             var cost = 0;
-            var wallsToBuild = [false, false, false, false];
 
             var minClearance = analysis.landHeight - 4;
             var maxClearance = analysis.landHeight + 4;
@@ -334,21 +348,8 @@ var TileHelper = function () {
                 cost += 900;
             }
             if (objectsInfo.wallObject) {
-                if (regionInfo.x == regionInfo.left) {
-                    wallsToBuild[0] = true;
-                    cost += 200;
-                }
-                if (regionInfo.x == regionInfo.right) {
-                    wallsToBuild[2] = true;
-                    cost += 200;
-                }
-                if (regionInfo.y == regionInfo.bottom) {
-                    wallsToBuild[3] = true;
-                    cost += 200;
-                }
-                if (regionInfo.y == regionInfo.top) {
-                    wallsToBuild[1] = true;
-                    cost += 200;
+                for (var i = 0; i < 4; i++) {
+                    if (this.EdgesContainsEdge(edges, i)) cost += 20;
                 }
             }
 
@@ -364,7 +365,10 @@ var TileHelper = function () {
                 result.minClearance = minClearance;
                 result.maxClearance = maxClearance;
                 result.cost += cost;
-                result.wallsToBuild = wallsToBuild;
+                result.edges = edges;
+                result.build = function () {
+                    return _this2.ConstructPool(result);
+                };
                 return result;
             }
         }
@@ -373,11 +377,11 @@ var TileHelper = function () {
         value: function ConstructPool(preconstruction) {
             var tile = preconstruction.tile;
             var analysis = preconstruction.analysis;
+            var edges = preconstruction.edges;
             var regionInfo = preconstruction.regionInfo;
             var objectsInfo = preconstruction.objectsInfo;
             var cost = preconstruction.cost;
             var indicesToRemove = preconstruction.indicesToRemove;
-            var wallsToBuild = preconstruction.wallsToBuild;
 
             // Destruct
             if (indicesToRemove.length > 0) {
@@ -396,7 +400,7 @@ var TileHelper = function () {
             }
 
             for (var _i7 = 0; _i7 < 4; _i7++) {
-                if (wallsToBuild[_i7]) {
+                if (this.EdgesContainsEdge(edges, _i7)) {
                     this.InsertNewWallElement(tile, analysis.surfaceIndex + 1, {
                         baseHeight: analysis.landHeight,
                         index: objectsInfo.wallObject.index,
@@ -502,14 +506,44 @@ function finishSelection() {
     try {
         for (var x = left; x <= right; x++) {
             for (var y = bottom; y <= top; y++) {
+                var deckWidth = 2;
                 var regionInfo = {
                     left: left, right: right,
                     top: top, bottom: bottom,
                     x: x, y: y };
-
-                var preconstruction = TileHelper.PreConstructPool(selection, regionInfo, {
+                var objectsInfo = {
                     footpathObject: footpathObject,
-                    wallObject: objectHelper.GetWall("XK-SWM00") });
+                    wallObject: objectHelper.GetWall("XK-SWM00") };
+
+                var preconstruction = void 0;
+                if (x - left < deckWidth || right - x < deckWidth || y - bottom < deckWidth || top - y < deckWidth) {
+                    var leftOuterEdge = x == left;
+                    var rightOuterEdge = x == right;
+                    var bottomOuterEdge = y == bottom;
+                    var topOuterEdge = y == top;
+
+                    var innerEdge = x - left >= deckWidth - 1 && right - x >= deckWidth - 1 && y - bottom >= deckWidth - 1 && top - y >= deckWidth - 1;
+
+                    var rightInnerEdge = innerEdge && x - left == deckWidth - 1;
+                    var leftInnerEdge = innerEdge && right - x == deckWidth - 1;
+                    var topInnerEdge = innerEdge && y - bottom == deckWidth - 1;
+                    var bottomInnerEdge = innerEdge && top - y == deckWidth - 1;
+
+                    var innerCorner = rightInnerEdge && bottomInnerEdge || bottomInnerEdge && leftInnerEdge || leftInnerEdge && topInnerEdge || topInnerEdge && rightInnerEdge;
+
+                    var edges = TileHelper.ManuallyCalculatePathEdges(!leftOuterEdge && !(leftInnerEdge && !innerCorner), !rightOuterEdge && !(rightInnerEdge && !innerCorner), !bottomOuterEdge && !(bottomInnerEdge && !innerCorner), !topOuterEdge && !(topInnerEdge && !innerCorner), !(leftOuterEdge || topOuterEdge) && !((leftInnerEdge || topInnerEdge) && !(rightInnerEdge || bottomInnerEdge)), !(rightOuterEdge || topOuterEdge) && !((rightInnerEdge || topInnerEdge) && !(leftInnerEdge || bottomInnerEdge)), !(rightOuterEdge || bottomOuterEdge) && !((rightInnerEdge || bottomInnerEdge) && !(leftInnerEdge || topInnerEdge)), !(leftOuterEdge || bottomOuterEdge) && !((leftInnerEdge || bottomInnerEdge) && !(rightInnerEdge || topInnerEdge)));
+
+                    preconstruction = TileHelper.PreConstructDeck(selection, edges, regionInfo, objectsInfo);
+                } else {
+                    var leftEdge = x == left + deckWidth;
+                    var rightEdge = x == right - deckWidth;
+                    var bottomEdge = y == bottom + deckWidth;
+                    var topEdge = y == top - deckWidth;
+                    var _edges = TileHelper.ManuallyCalculatePathEdges(leftEdge, rightEdge, bottomEdge, topEdge);
+
+                    preconstruction = TileHelper.PreConstructPool(selection, _edges, regionInfo, objectsInfo);
+                }
+
                 if (!preconstruction.success) return;
                 totalCost += preconstruction.cost;
                 preconstructions.push(preconstruction);
@@ -546,7 +580,7 @@ function finishSelection() {
         }
 
         while (preconstructions.length > 0) {
-            TileHelper.ConstructPool(preconstructions.pop());
+            preconstructions.pop().build();
         }
     } catch (ex) {
         ui.showError("Exception:", "" + ex);

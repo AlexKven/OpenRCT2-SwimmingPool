@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "rollup ./src/index.js --file ./build/SwimmingPool.js && babel ./build/SwimmingPool.js --out-file ./build/SwimmingPool.js && cpy ./build/SwimmingPool.js ../../plugin/ --rename=SwimmingPool.js",
+    "build": "rollup ./src/index.js --file ./build/SwimmingPool.js && babel ./build/SwimmingPool.js --out-file ./build/SwimmingPool.js && cpy ./build/SwimmingPool.js C:/Users/Alex/Documents/OpenRCT2/plugin/ --rename=SwimmingPool.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "watch": "npm-watch"
   },

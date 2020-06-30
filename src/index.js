@@ -122,15 +122,78 @@ function finishSelection() {
     try {
     for (let x = left; x <= right; x++) {
         for (let y = bottom; y <= top; y++) {
+            let deckWidth = 2;
             let regionInfo = {
                 left: left, right: right,
                 top: top, bottom: bottom,
                 x: x, y: y };
+            let objectsInfo = { 
+                footpathObject: footpathObject,
+                wallObject: objectHelper.GetWall("XK-SWM00")}; 
 
-            var preconstruction = TileHelper.PreConstructPool(selection, regionInfo,
-                { 
-                    footpathObject: footpathObject,
-                    wallObject: objectHelper.GetWall("XK-SWM00")});
+            let preconstruction;
+            if (x - left < deckWidth || right - x < deckWidth ||
+                y - bottom < deckWidth || top - y < deckWidth) {
+                let leftOuterEdge = x == left;
+                let rightOuterEdge = x == right;
+                let bottomOuterEdge = y == bottom;
+                let topOuterEdge = y == top;
+
+                let innerEdge =
+                    x - left >= deckWidth - 1 &&
+                    right - x >= deckWidth - 1 &&
+                    y - bottom >= deckWidth - 1 &&
+                    top - y >= deckWidth - 1;
+
+                let rightInnerEdge = innerEdge &&
+                x - left == deckWidth - 1;
+                let leftInnerEdge = innerEdge &&
+                right - x == deckWidth - 1;
+                let topInnerEdge = innerEdge &&
+                y - bottom == deckWidth - 1;
+                let bottomInnerEdge = innerEdge &&
+                top - y == deckWidth - 1;
+
+                let innerCorner =
+                    (rightInnerEdge && bottomInnerEdge) ||
+                    (bottomInnerEdge && leftInnerEdge) ||
+                    (leftInnerEdge && topInnerEdge) ||
+                    (topInnerEdge && rightInnerEdge);
+
+                let edges = TileHelper.ManuallyCalculatePathEdges(
+                    !leftOuterEdge && !(leftInnerEdge && !innerCorner),
+                    !rightOuterEdge && !(rightInnerEdge && !innerCorner),
+                    !bottomOuterEdge && !(bottomInnerEdge && !innerCorner),
+                    !topOuterEdge && !(topInnerEdge && !innerCorner),
+
+                    !(leftOuterEdge || topOuterEdge) &&
+                    !((leftInnerEdge || topInnerEdge) &&
+                    !(rightInnerEdge || bottomInnerEdge)),
+
+                    !(rightOuterEdge || topOuterEdge) &&
+                    !((rightInnerEdge || topInnerEdge) &&
+                    !(leftInnerEdge || bottomInnerEdge)),
+
+                    !(rightOuterEdge || bottomOuterEdge) &&
+                    !((rightInnerEdge || bottomInnerEdge) &&
+                    !(leftInnerEdge || topInnerEdge)),
+
+                    !(leftOuterEdge || bottomOuterEdge) &&
+                    !((leftInnerEdge || bottomInnerEdge) &&
+                    !(rightInnerEdge || topInnerEdge)));
+
+                preconstruction = TileHelper.PreConstructDeck(selection, edges, regionInfo, objectsInfo);
+            } else {
+                let leftEdge = x == left + deckWidth;
+                let rightEdge = x == right - deckWidth;
+                let bottomEdge = y == bottom + deckWidth;
+                let topEdge = y == top - deckWidth;
+                let edges = TileHelper.ManuallyCalculatePathEdges(
+                    leftEdge, rightEdge, bottomEdge, topEdge);
+
+                preconstruction = TileHelper.PreConstructPool(selection, edges, regionInfo, objectsInfo);
+            }
+
             if (!preconstruction.success)
                 return;
             totalCost += preconstruction.cost;
@@ -168,7 +231,7 @@ function finishSelection() {
     }
 
     while (preconstructions.length > 0) {
-        TileHelper.ConstructPool(preconstructions.pop());
+        preconstructions.pop().build();
     }
     } catch (ex) {
          ui.showError("Exception:", `${ex}`);

@@ -35,6 +35,11 @@ class TileHelper {
             xAbove && yBelow, xBelow && yBelow);
     }
 
+    static EdgesContainsEdge(edges, edge) {
+        var bit = Math.pow(2, edge);
+        return (edges & bit) == bit;
+    }
+
     static AnalyzeTile(tile) {
         let result = {
             tile: tile,
@@ -213,7 +218,7 @@ class TileHelper {
         return { success: true, cost: cost, indicesToRemove: indicesToRemove };
     }
 
-    static PreConstructDeck(selection, regionInfo, objectsInfo) {
+    static PreConstructDeck(selection, edges, regionInfo, objectsInfo) {
         let indexX = regionInfo.x - regionInfo.left + 1;
         let indexY = regionInfo.y - regionInfo.bottom + 1;
         let analysis = selection.tiles[indexX][indexY];
@@ -238,11 +243,13 @@ class TileHelper {
         else {
             result.tile = tile;
             result.analysis = analysis;
+            result.edges = edges;
             result.regionInfo = regionInfo;
             result.objectsInfo = objectsInfo;
             result.minClearance = minClearance;
             result.maxClearance = maxClearance;
             result.cost += cost;
+            result.build = () => this.ConstructDeck(result);
             return result;
         }
     }
@@ -250,6 +257,7 @@ class TileHelper {
     static ConstructDeck(preconstruction) {
         let tile = preconstruction.tile;
         let analysis = preconstruction.analysis;
+        let edges = preconstruction.edges;
         let regionInfo = preconstruction.regionInfo;
         let objectsInfo = preconstruction.objectsInfo;
         let cost = preconstruction.cost;
@@ -276,21 +284,20 @@ class TileHelper {
             this.InsertNewFootpathElement(tile, analysis.surfaceIndex + 1, {
                 baseHeight: analysis.landHeight,
                 footpathType: objectsInfo.footpathObject.index,
-                edgesAndCorners: this.CalculatePathEdges(regionInfo)
+                edgesAndCorners: edges
             });
         }
 
         park.cash -= cost;
     }
 
-    static PreConstructPool(selection, regionInfo, objectsInfo) {
+    static PreConstructPool(selection, edges, regionInfo, objectsInfo) {
         let indexX = regionInfo.x - regionInfo.left + 1;
         let indexY = regionInfo.y - regionInfo.bottom + 1;
         let analysis = selection.tiles[indexX][indexY];
         let tile = analysis.tile;
 
         let cost = 0;
-        let wallsToBuild = [false, false, false, false];
 
         let minClearance = analysis.landHeight - 4;
         let maxClearance = analysis.landHeight + 4;
@@ -301,21 +308,9 @@ class TileHelper {
             cost += 900;
         }
         if (objectsInfo.wallObject) {
-            if (regionInfo.x == regionInfo.left) {
-                wallsToBuild[0] = true;
-                cost += 200;
-            }
-            if (regionInfo.x == regionInfo.right) {
-                wallsToBuild[2] = true;
-                cost += 200;
-            }
-            if (regionInfo.y == regionInfo.bottom) {
-                wallsToBuild[3] = true;
-                cost += 200;
-            }
-            if (regionInfo.y == regionInfo.top) {
-                wallsToBuild[1] = true;
-                cost += 200;
+            for (let i = 0; i < 4; i++) {
+                if (this.EdgesContainsEdge(edges, i))
+                    cost += 20;
             }
         }
 
@@ -333,7 +328,8 @@ class TileHelper {
             result.minClearance = minClearance;
             result.maxClearance = maxClearance;
             result.cost += cost;
-            result.wallsToBuild = wallsToBuild;
+            result.edges = edges;
+            result.build = () => this.ConstructPool(result);
             return result;
         }
     }
@@ -341,11 +337,11 @@ class TileHelper {
     static ConstructPool(preconstruction) {
         let tile = preconstruction.tile;
         let analysis = preconstruction.analysis;
+        let edges = preconstruction.edges;
         let regionInfo = preconstruction.regionInfo;
         let objectsInfo = preconstruction.objectsInfo;
         let cost = preconstruction.cost;
         let indicesToRemove = preconstruction.indicesToRemove;
-        let wallsToBuild = preconstruction.wallsToBuild;
         
         // Destruct
         if (indicesToRemove.length > 0)
@@ -365,7 +361,7 @@ class TileHelper {
         }
 
         for (let i = 0; i < 4; i++) {
-            if (wallsToBuild[i]) {
+            if (this.EdgesContainsEdge(edges, i)) {
                 this.InsertNewWallElement(tile, analysis.surfaceIndex + 1, {
                     baseHeight: analysis.landHeight,
                     index: objectsInfo.wallObject.index,
