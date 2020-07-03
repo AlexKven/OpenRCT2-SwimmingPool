@@ -122,7 +122,7 @@ function finishSelection() {
     try {
     for (let x = left; x <= right; x++) {
         for (let y = bottom; y <= top; y++) {
-            let deckWidth = 2;
+            let deckWidth = 1;
             let regionInfo = {
                 left: left, right: right,
                 top: top, bottom: bottom,

@@ -360,13 +360,15 @@ class TileHelper {
             analysis.surface.waterHeight = (analysis.landHeight + 4) * 8;
         }
 
-        for (let i = 0; i < 4; i++) {
-            if (this.EdgesContainsEdge(edges, i)) {
-                this.InsertNewWallElement(tile, analysis.surfaceIndex + 1, {
-                    baseHeight: analysis.landHeight,
-                    index: objectsInfo.wallObject.index,
-                    orientation: i
-                });
+        if (objectsInfo.wallObject != null) {
+            for (let i = 0; i < 4; i++) {
+                if (this.EdgesContainsEdge(edges, i)) {
+                    this.InsertNewWallElement(tile, analysis.surfaceIndex + 1, {
+                        baseHeight: analysis.landHeight,
+                        index: objectsInfo.wallObject.index,
+                        orientation: i
+                    });
+                }
             }
         }
 

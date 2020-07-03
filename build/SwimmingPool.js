@@ -399,13 +399,15 @@ var TileHelper = function () {
                 analysis.surface.waterHeight = (analysis.landHeight + 4) * 8;
             }
 
-            for (var _i7 = 0; _i7 < 4; _i7++) {
-                if (this.EdgesContainsEdge(edges, _i7)) {
-                    this.InsertNewWallElement(tile, analysis.surfaceIndex + 1, {
-                        baseHeight: analysis.landHeight,
-                        index: objectsInfo.wallObject.index,
-                        orientation: _i7
-                    });
+            if (objectsInfo.wallObject != null) {
+                for (var _i7 = 0; _i7 < 4; _i7++) {
+                    if (this.EdgesContainsEdge(edges, _i7)) {
+                        this.InsertNewWallElement(tile, analysis.surfaceIndex + 1, {
+                            baseHeight: analysis.landHeight,
+                            index: objectsInfo.wallObject.index,
+                            orientation: _i7
+                        });
+                    }
                 }
             }
 
@@ -506,7 +508,7 @@ function finishSelection() {
     try {
         for (var x = left; x <= right; x++) {
             for (var y = bottom; y <= top; y++) {
-                var deckWidth = 2;
+                var deckWidth = 1;
                 var regionInfo = {
                     left: left, right: right,
                     top: top, bottom: bottom,
