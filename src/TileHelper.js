@@ -91,6 +91,14 @@ class TileHelper {
         return result;
     }
 
+    static HasPool(analysis) {
+        if (analysis.waterHeight == analysis.landHeight + 4 &&
+            analysis.slope == 0 &&
+            analysis.hasSurface)
+            return true;
+        return false;
+    }
+
     static ConnectFootpathsBeyondEdge(regionInfo, footpathElement) {
 
     }

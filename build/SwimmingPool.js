@@ -134,6 +134,12 @@ var TileHelper = function () {
             return result;
         }
     }, {
+        key: "HasPool",
+        value: function HasPool(analysis) {
+            if (analysis.waterHeight == analysis.landHeight + 4 && analysis.slope == 0 && analysis.hasSurface) return true;
+            return false;
+        }
+    }, {
         key: "ConnectFootpathsBeyondEdge",
         value: function ConnectFootpathsBeyondEdge(regionInfo, footpathElement) {}
     }, {
@@ -530,6 +536,14 @@ function finishSelection() {
                     var leftInnerEdge = innerEdge && right - x == deckWidth - 1;
                     var topInnerEdge = innerEdge && y - bottom == deckWidth - 1;
                     var bottomInnerEdge = innerEdge && top - y == deckWidth - 1;
+
+                    var indexX = regionInfo.x - regionInfo.left + 1;
+                    var indexY = regionInfo.y - regionInfo.bottom + 1;
+
+                    if (leftOuterEdge) leftOuterEdge = !TileHelper.HasPool(selection.tiles[indexX - 1][indexY]);
+                    if (rightOuterEdge) rightOuterEdge = !TileHelper.HasPool(selection.tiles[indexX + 1][indexY]);
+                    if (bottomOuterEdge) bottomOuterEdge = !TileHelper.HasPool(selection.tiles[indexX][indexY - 1]);
+                    if (topOuterEdge) topOuterEdge = !TileHelper.HasPool(selection.tiles[indexX][indexY + 1]);
 
                     var innerCorner = rightInnerEdge && bottomInnerEdge || bottomInnerEdge && leftInnerEdge || leftInnerEdge && topInnerEdge || topInnerEdge && rightInnerEdge;
 

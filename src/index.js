@@ -153,6 +153,22 @@ function finishSelection() {
                 y - bottom == deckWidth - 1;
                 let bottomInnerEdge = innerEdge &&
                 top - y == deckWidth - 1;
+                
+                let indexX = regionInfo.x - regionInfo.left + 1;
+                let indexY = regionInfo.y - regionInfo.bottom + 1;
+
+                if (leftOuterEdge)
+                    leftOuterEdge = !TileHelper.HasPool(
+                        selection.tiles[indexX - 1][indexY]);
+                if (rightOuterEdge)
+                    rightOuterEdge = !TileHelper.HasPool(
+                        selection.tiles[indexX + 1][indexY]);
+                if (bottomOuterEdge)
+                    bottomOuterEdge = !TileHelper.HasPool(
+                        selection.tiles[indexX][indexY - 1]);
+                if (topOuterEdge)
+                    topOuterEdge = !TileHelper.HasPool(
+                        selection.tiles[indexX][indexY + 1]);
 
                 let innerCorner =
                     (rightInnerEdge && bottomInnerEdge) ||
